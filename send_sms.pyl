@@ -1,0 +1,127 @@
+import serial
+import time
+from openpyxl import load_workbook
+import os
+from com_port_checker import *
+
+
+
+def read_settings(settings_file):
+    if not os.path.exists(settings_file):
+        print(f"Файл {settings_file} не существует.")
+        return {}
+
+    settings = {}
+    with open(settings_file, 'r') as file:
+        for line_num, line in enumerate(file, start=1):
+            line = line.strip()
+            if not line or '=' not in line:
+                print(f"Пропущена строка {line_num}: '{line}'")
+                continue
+            try:
+                name, value = line.split('=', 1)
+                settings[name.strip()] = value.strip()
+            except ValueError as e:
+                print(f"Ошибка в строке {line_num}: '{line}', ошибка: {e}")
+                continue
+    return settings
+
+def text_to_ucs2(text):
+    ucs2_text = text.encode('utf-16-be').hex().upper()
+    return ucs2_text
+
+def create_pdu_message(phone_number, ucs2_message):
+    # Здесь мы создаем PDU-сообщение. Это пример, вам нужно будет адаптировать его под ваши нужды
+    service_center_number = "00"  # Используем номер сервисного центра по умолчанию
+    tp_mti = "01"  # SMS-SUBMIT
+    tp_mr = "00"  # Message reference
+    tp_da = "91" + phone_number[1:]  # Номер получателя в международном формате (без '+')
+    tp_pid = "00"  # Protocol identifier
+    tp_dcs = "08"  # Data coding scheme (UCS2)
+    tp_vp = "AA"  # Validity period
+    tp_udl = "{:02X}".format(len(ucs2_message) // 2)  # Length of user data
+    tp_ud = ucs2_message
+
+    pdu_message = (service_center_number + tp_mti + tp_mr + tp_da + tp_pid + tp_dcs + tp_vp + tp_udl + tp_ud)
+    return pdu_message
+
+def send_sms(serial_port, phone_number, message, mode='text', debug=False):
+    try:
+        # Открываем серийный порт
+        ser = serial.Serial(serial_port, 9600, timeout=5)
+    except serial.SerialException as e:
+        print(f"Ошибка открытия порта {serial_port}: {e}")
+        return False
+
+    time.sleep(1)  # Ждем немного, чтобы модем успел инициализироваться
+
+    def send_text_mode():
+        ser.write(b'AT+CMGF=1\r')  # Устанавливаем текстовый режим
+        time.sleep(1)
+        ser.write(f'AT+CMGS="{phone_number}"\r'.encode())
+        time.sleep(1)
+        ser.write(message.encode() + b'\x1A')  # Заканчиваем сообщение Ctrl+Z (0x1A)
+        time.sleep(3)
+        return ser.read_all().decode()
+
+    def send_pdu_mode():
+        ser.write(b'AT+CMGF=0\r')  # Устанавливаем режим PDU
+        time.sleep(1)
+        ucs2_message = text_to_ucs2(message)
+        pdu_message = create_pdu_message(phone_number, ucs2_message)
+        ser.write(f'AT+CMGS={len(pdu_message) // 2}\r'.encode())
+        time.sleep(1)
+        ser.write(pdu_message.encode() + b'\x1A')  # Заканчиваем сообщение Ctrl+Z (0x1A)
+        time.sleep(3)
+        return ser.read_all().decode()
+
+    response = send_text_mode()
+
+    if debug:
+        print(f"Модем ответил: {response} -debug")
+
+    if 'OK' in response:
+        print(f"SMS успешно отправлено на номер {phone_number}")
+        ser.close()
+        return True
+    elif '+CMS ERROR: 500' in response:
+        print("Обнаружена ошибка +CMS ERROR: 500. Смена режима на PDU (UDP).")
+        response = send_pdu_mode()
+        if 'OK' in response:
+            print(f"SMS успешно отправлено на номер {phone_number} в режиме PDU")
+            ser.close()
+            return True
+        else:
+            print(f"Ошибка при отправке SMS на номер {phone_number}: {response}")
+            ser.close()
+            return False
+    else:
+        print(f"Ошибка при отправке SMS на номер {phone_number}: {response}")
+        ser.close()
+        return False
+
+def send_sms_to_contacts(file_path, message):
+    if not os.path.exists(file_path):
+        print(f"Файл {file_path} не существует.")
+        return
+
+    settings = read_settings("Files/settings.txt")
+    debug = settings.get('debug') == '1'
+
+    wb = load_workbook(file_path)
+    ws = wb.active
+
+    com_port = find_com_port()
+    if not com_port:
+        print("Не удалось найти COM-порт GSM модема.")
+        return
+
+    for row in ws.iter_rows(min_row=2, values_only=True):  # Начинаем со второй строки (первая строка - заголовки)
+        phone_number = row[0]
+        send_sms(com_port, phone_number, message, 'text', debug)
+
+def send_sms():
+    contacts_file = "Files/contacts.xlsx"
+    sms_message = input("Введите сообщение (английскими буквами!): ")
+    send_sms_to_contacts(contacts_file, sms_message)
+send_sms()

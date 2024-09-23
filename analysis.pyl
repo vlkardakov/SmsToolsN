@@ -1,0 +1,109 @@
+import pandas as pd
+from datetime import datetime, timedelta
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+# Функция для загрузки контактов из файла Excel
+def load_contacts(filename):
+    try:
+        df = pd.read_excel(filename)
+        df = df.drop_duplicates()
+    except Exception as e:
+        print(f"Ошибка при чтении файла контактов: {e}")
+        return {}
+
+    required_columns = [df.columns[0], df.columns[1]]  # Номер телефона, Имя
+    for column in required_columns:
+        if column not in df.columns:
+            print(f"Отсутствует ожидаемый столбец: '{column}'")
+            return {}
+
+    contacts = {}
+    for index, row in df.iterrows():
+        phone_number = str(row[df.columns[0]]).replace(' ', '').replace('-', '').replace('+', '')
+        contacts[phone_number] = row[df.columns[1]]
+    return contacts
+
+# Функция для загрузки SMS из файла Excel
+def load_sms_log(filename):
+    try:
+        df = pd.read_excel(filename)
+        df = df.drop_duplicates()
+        print("Загруженные столбцы:", df.columns)  # Вывод загруженных столбцов для отладки
+    except Exception as e:
+        print(f"Ошибка при чтении файла SMS логов: {e}")
+        return pd.DataFrame()
+    return df
+
+# Функция для получения даты и времени
+def get_current_datetime():
+    now = datetime.now()
+    return now.strftime('%d/%m/%Y'), now.strftime('%H:%M:%S')
+
+# Функция для анализа SMS логов
+def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
+    contacts = load_contacts(contacts_file)
+    sms_log = load_sms_log(sms_log_file)
+
+    if sms_log.empty or not contacts:
+        print("Не удалось загрузить данные для анализа.")
+        return
+
+    # Получение даты и времени
+    today_date, current_time = get_current_datetime()
+    yesterday_date = (datetime.now() - timedelta(days=1)).strftime('%d/%m/%Y')
+
+    # Используем индексацию по номерам столбцов
+    phone_column_index = 0    # Индекс столбца с номерами телефонов
+    date_column_index = 3     # Индекс столбца с датой получения SMS
+
+    # Проверка типов данных
+    sms_log.iloc[:, phone_column_index] = sms_log.iloc[:, phone_column_index].astype(str)
+    sms_log.iloc[:, date_column_index] = pd.to_datetime(sms_log.iloc[:, date_column_index], format='%d/%m/%Y', errors='coerce').dt.strftime('%d/%m/%Y')
+
+    # Получаем номера телефонов, которые отправляли SMS за последние сутки
+    recent_sms = sms_log[sms_log.iloc[:, date_column_index].isin([today_date, yesterday_date])]
+    recent_sms_numbers = recent_sms.iloc[:, phone_column_index].str.replace(' ', '').str.replace('-', '').str.replace('+', '').unique()
+
+    # Определяем контакты, которые не прислали SMS за последние сутки
+    missing_contacts = {number: name for number, name in contacts.items() if number not in recent_sms_numbers}
+
+    # Определяем номер анализа
+    try:
+        with open(analysis_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            last_analysis_number = None
+            for line in reversed(lines):
+                if line.startswith('Анализ номер '):
+                    last_analysis_number = int(line.strip().split('Анализ номер ')[-1].split()[0])
+                    break
+            if last_analysis_number is None:
+                new_analysis_number = 1
+            else:
+                new_analysis_number = last_analysis_number + 1
+    except FileNotFoundError:
+        new_analysis_number = 1
+
+    # Запись результатов в файл
+    analysis_content = f"Анализ номер {new_analysis_number}\n"
+    analysis_content += f"Дата: {today_date}, время: {current_time}.\n"
+    analysis_content += "Контакты, не приславшие сообщение за последние сутки:\n\n"
+    for number, name in missing_contacts.items():
+        if len(number) == 11 and not number.startswith('8'):
+            analysis_content += f"+{number} -- {name}\n"
+        else:
+            analysis_content += f"{number} -- {name}\n"
+
+    with open(analysis_file, 'a', encoding='utf-8') as f:
+        f.write("\n\n")
+        f.write(analysis_content)
+
+    print("Анализ:")
+    print(analysis_content)
+    print(f"Анализ номер {new_analysis_number} успешно добавлен в файл {analysis_file}.")
+def analysis():
+    contacts_file = "Files/contacts.xlsx"
+    sms_log_file = "Files/sms_log.xlsx"
+    analysis_file = "Files/Analysis.txt"
+    analyze_sms_log(contacts_file, sms_log_file, analysis_file)

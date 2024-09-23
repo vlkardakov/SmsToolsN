@@ -1,0 +1,7 @@
+#debug-mode 1-On nothing - Off
+debug = 1
+#sleep_time - in seconds
+sleep_time = 10
+#charge warning - count of procents
+charge_warning = 50
+

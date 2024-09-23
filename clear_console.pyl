@@ -1,0 +1,15 @@
+import os
+import platform
+
+
+def clear_console():
+    # Определяем операционную систему
+    current_os = platform.system()
+
+    # Очищаем консоль в зависимости от ОС
+    if current_os == 'Windows':
+        os.system('cls')
+    elif current_os in ['Linux', 'Darwin']:  # Darwin - это macOS
+        os.system('clear')
+    else:
+        print("Операционная система не поддерживается для очистки консоли.")
