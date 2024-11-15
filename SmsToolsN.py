@@ -1,7 +1,6 @@
 import os
 import colorama
 from colorama import init, Fore, Back, Style
-import PySimpleGUI as sg
 from com_utils import find_available_ports, send_at_command
 colorama.init()
 # Находим все доступные COM порты
@@ -354,8 +353,6 @@ def delete_contacts(file_path, search_terms):
             break
         else:
             print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
-
-
 def search_contacts(file_path, search_terms):
     wb = load_workbook(file_path)
     ws = wb.active
@@ -406,8 +403,6 @@ def search_contacts(file_path, search_terms):
             break
         else:
             print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
-
-
 def edit_contacts():
     file_path = "Files/contacts.xlsx"
 
@@ -446,11 +441,8 @@ def edit_contacts():
         else:
             print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
             break
-
-
 import subprocess
 import platform
-
 def open_files_folder():
     """
     Открывает папку 'Files' в текущем каталоге в проводнике.
@@ -480,14 +472,10 @@ def open_files_folder():
         print('', end = '')
     except Exception as e:
         print('', end = '')
-
-
 from datetime import datetime
 import pandas as pd
 from openpyxl import Workbook
 #from com_port_checker import find_available_ports, send_at_command, modem_port
-
-
 # Функция для отправки AT команды и получения ответа
 def send_at_command(port, command):
     modem = serial.Serial(port, 9600, timeout=5)
@@ -600,11 +588,6 @@ def read_sms_and_save(port, contacts_file, output_file):
         modem = serial.Serial(port, 9600, timeout=5)
         time.sleep(1)
 
-        # Отправляем команду на чтение SMS
-        modem.write(b'AT+CMGF=1\r\n')  # Устанавливаем текстовый режим SMS
-        time.sleep(1)
-        modem.write(b'AT+CMGL="ALL"\r\n')  # Читаем все SMS
-        time.sleep(1)
 
         # Читаем ответы
         response = modem.read_all().decode()
