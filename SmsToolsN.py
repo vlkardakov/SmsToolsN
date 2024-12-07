@@ -1,6 +1,7 @@
 import os
 import colorama
 from colorama import init, Fore, Back, Style
+import warnings
 from com_utils import find_available_ports, send_at_command
 colorama.init()
 # Находим все доступные COM порты
@@ -35,13 +36,8 @@ else:
             break
         if not available_ports:
             modem_port = 'COM'
-
 from datetime import timedelta
-import warnings
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
-# Функция для загрузки контактов из файла Excel
 def load_contacts(filename):
     try:
         df = pd.read_excel(filename)
@@ -61,8 +57,6 @@ def load_contacts(filename):
         phone_number = str(row[df.columns[0]]).replace(' ', '').replace('-', '').replace('+', '')
         contacts[phone_number] = row[df.columns[1]]
     return contacts
-
-# Функция для загрузки SMS из файла Excel
 def load_sms_log(filename):
     try:
         df = pd.read_excel(filename)
@@ -73,14 +67,9 @@ def load_sms_log(filename):
         print(f"Ошибка при чтении файла SMS логов: {e}")
         return pd.DataFrame()
     return df
-
-# Функция для получения даты и времени
 def get_current_datetime():
     now = datetime.now()
     return now.strftime('%d/%m/%Y'), now.strftime('%H:%M:%S')
-
-# Функция для анализа SMS логов
-# Функция для анализа SMS логов
 def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
     contacts = load_contacts(contacts_file)
     sms_log = load_sms_log(sms_log_file)
@@ -189,15 +178,11 @@ def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
     print("Анализ:")
     print(analysis_content)
     print(f"Анализ номер {new_analysis_number} успешно добавлен в файл {analysis_file}.")
-
-
 def analysis():
     contacts_file = "Files/contacts.xlsx"
     sms_log_file = "Files/sms_log.xlsx"
     analysis_file = "Files/Analysis.txt"
     analyze_sms_log(contacts_file, sms_log_file, analysis_file)
-
-
 def clear_console():
     # Определяем операционную систему
     current_os = platform.system()
@@ -209,8 +194,6 @@ def clear_console():
         os.system('clear')
     else:
         print("Операционная система не поддерживается для очистки консоли.")
-
-
 def add_contacts(file_path, new_contacts):
     # Создаем каталог, если он не существует
     directory = os.path.dirname(file_path)
@@ -234,7 +217,6 @@ def add_contacts(file_path, new_contacts):
 
     wb.save(file_path)
     print(f"Контакты успешно добавлены в {file_path}")
-
 def send_smst():
     contacts_file = "Files/contacts.xlsx"
     sms_message = input("Введите сообщение (английскими буквами!): ")
@@ -294,7 +276,6 @@ def send_smst():
             break
         else:
             print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
-
 def delete_contacts(file_path, search_terms):
     wb = load_workbook(file_path)
     ws = wb.active
@@ -473,15 +454,11 @@ def open_files_folder():
 from datetime import datetime
 import pandas as pd
 from openpyxl import Workbook
-#from com_port_checker import find_available_ports, send_at_command, modem_port
-# Функция для отправки AT команды и получения ответа
-
 def send_at_command0(ser, command, response_timeout=1):
     ser.write((command + '\r\n').encode())
     time.sleep(response_timeout)
     response = ser.read_all().decode()
     return response
-
 def send_at_command(port, command):
     modem = serial.Serial(port, 9600, timeout=5)
     modem.write((command + '\r\n').encode())
@@ -489,10 +466,6 @@ def send_at_command(port, command):
     response = modem.read_all().decode()
     modem.close()
     return response
-
-
-# Функция для чтения SMS и записи в файл
-# Функция для удаления SMS на SIM-карте по индексу
 def delete_sms_by_index(port, index):
     try:
         modem = serial.Serial(port, 9600, timeout=5)
@@ -504,11 +477,6 @@ def delete_sms_by_index(port, index):
         print(f"Ошибка открытия порта {port}: {e}")
     except Exception as e:
         print(f"Ошибка при удалении смс по индексу {index}: {e}")
-
-# Функция для чтения SMS и записи в файл
-
-
-# Функция для преобразования даты из формата YY/MM/DD в формат DD/MM/YYYY
 def format_date(date_str):
     try:
         # Предполагается, что дата в формате YY/MM/DD
@@ -516,9 +484,6 @@ def format_date(date_str):
         return date_obj.strftime('%d/%m/%Y')
     except ValueError:
         return date_str  # В случае ошибки возвращаем оригинальную строку
-
-
-
 # Функция для парсинга ответа AT+CMGL и извлечения SMS сообщений
 def parse_sms_response(response):
     messages = []
@@ -587,16 +552,12 @@ def parse_sms_response(response):
             })
         i += 1
     return messages
-
-
 # Функция для объединения длинных сообщений
 def combine_long_messages(messages):
     combined_messages = []
     for message in messages:
         combined_messages.append(message)
     return combined_messages
-
-# Изменение функции read_sms_and_save
 # Изменение функции read_sms_and_save
 def read_sms_and_save(port, contacts_file, output_file):
     try:
@@ -638,10 +599,6 @@ def read_sms_and_save(port, contacts_file, output_file):
 
     except Exception as e:
         print(f"Ошибка при чтении и записи смс: {e}")
-
-
-
-
 # Функция для загрузки контактов из файла Excel
 def load_contacts(filename):
     try:
@@ -662,11 +619,7 @@ def load_contacts(filename):
         phone_number = str(row['Номер телефона']).replace(' ', '').replace('-', '').replace('+', '')
         contacts[phone_number] = row['Имя маячка']
     return contacts
-
-
 from openpyxl.styles import Alignment, PatternFill
-
-
 def append_to_excel(sms_messages, contacts, output_file):
     if not sms_messages:  # Если нет новых сообщений, не записываем в таблицу
         return
@@ -712,9 +665,6 @@ def append_to_excel(sms_messages, contacts, output_file):
             ws.row_dimensions[ws.max_row].height = 13.7
 
     wb.save(output_file)
-
-
-
 # Функция для обновления имен контактов в sms_log.xlsx
 def update_contact_names(output_file, contacts):
     try:
@@ -733,8 +683,6 @@ def update_contact_names(output_file, contacts):
             row[1].value = correct_name
 
     wb.save(output_file)
-
-
 # Функция для удаления всех SMS на SIM-карте
 def delete_all_sms(port):
     modem = serial.Serial(port, 9600, timeout=5)
@@ -742,8 +690,6 @@ def delete_all_sms(port):
     modem.write(b'AT+CMGD=1,4\r\n')  # Удаляем все сообщения
     time.sleep(1)
     modem.close()
-
-
 # Основной код
 import signal
 import sys
