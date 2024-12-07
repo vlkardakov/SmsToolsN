@@ -46,11 +46,11 @@ def menu_add_contacts():
 def err_msg(text):
     # Затем определяем интерфейс
     layout = [
-        [sg.Text(text), sg.Button('OK')]
+        [sg.Text(text), sg.Button('Смириться')]
     ]
 
     # Создание окна
-    window = sg.Window('Главное меню', layout)
+    window = sg.Window('Уведомление', layout)
 
     # Цикл событий
     while True:
@@ -79,10 +79,60 @@ def menu_main():
             break
         if event == 'Отправить смс :(' or event == "Получить смс :(":
             err_msg("Эта функция пока  не поддерживается в графическом интерфейсе :(")
-        
+
         if event == 'Меню добавления контактов':
             menu_add_contacts()
     window.close()
 
+def menu_choose_contacts():
+    # Затем определяем интерфейс
+    layout = [
+        [sg.Text('Аргументы: '), sg.InputText(key='search', enable_events=True)],
+        [sg.Button('Поиск', size=5, bind_return_key=True), sg.Button('Отмена', size=5), sg.Button('Очистить', size=5)],
+        [sg.Text('Список контактов:')],
+        [sg.Multiline(size=(56, 10), key='contacts', disabled=True)],
+        [sg.Button('Применить')]
+    ]
+
+    # Создание окна
+    window = sg.Window('Поиск контактов', layout)
+
+    # Список для хранения контактов
+    contacts_list = []
+
+    # Цикл событий
+    while True:
+        event, values = window.read()
+
+        if event in (sg.WINDOW_CLOSED, 'Отмена'):
+            break
+
+        if event == "Выбрать все существующие" or event == "Поиск":
+            search = values['search']
+            # Обновляем поле со списком контактов
+            contacts = search_contacts("Files/contacts.xlsx", search)[0]
+            # поиск здесь!!!!!! и в contacts_list
+            window['contacts'].update('')
+            complete = ""
+            for contact in contacts:
+                complete+=f"{contact}\n"
+            window['contacts'].update(complete)
+
+        if event == 'Очистить':
+            window['contacts'].update('')
+            window['search'].update('')
+        if event == 'Применить':
+            try:
+                window.close()
+                return contacts
+
+            except Exception as e:
+                err_msg(f"Неизвестная ошибка {e}")
+            break
+
+
+    window.close()
+
 if __name__ == "__main__":
+    print(menu_choose_contacts())
     menu_main()

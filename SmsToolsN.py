@@ -350,38 +350,22 @@ def search_contacts(file_path, search_terms):
 
     if not contacts_found:
         print("Нет контактов, соответствующих критериям поиска.")
-        return
+        return ["Нет контактов, соответствующих критериям поиска."], []
 
+    print(f"{contacts_found=}")
+    final = []
     print("Найдены следующие контакты:")
-    for i, contact in enumerate(contacts_found):
-        print(f"{i+1}. {contact[0]} -- {contact[1]}")
 
-    while True:
-        confirm = input("Нажмите Enter для подтверждения: ")
-        if confirm.lower() == "":
-            break
-        elif confirm.lower() == "e":
-            print("Текущие аргументы:")
-            print(f"Поиск: {' '.join(search_terms)}")
-            new_search_terms = input("Аргументы для поиска: ")
-            search_terms = new_search_terms.split() if new_search_terms else search_terms
-            include_terms = [term for term in search_terms if not term.startswith('-')]
-            exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
-            contacts_found = []
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                phone_number, contact_name = row
-                if not search_terms:
-                    contacts_found.append((phone_number, contact_name))
-                elif (any(term in phone_number or term in contact_name for term in include_terms) and
-                      not any(term in phone_number or term in contact_name for term in exclude_terms)):
-                    contacts_found.append((phone_number, contact_name))
-            print("Найдены следующие контакты:")
-            for i, contact in enumerate(contacts_found):
-                print(f"{i+1}. {contact[0]} -- {contact[1]}")
-        elif confirm.lower() == "n":
-            break
-        else:
-            print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
+    just_info = []
+
+    for i, contact in enumerate(contacts_found):
+        just_info.append({"number":contact[0], "name": contact[1]})
+        string = f"{i+1}. {contact[0]} -- {contact[1]}"
+        final.append(string)
+        print(string)
+    print(f"{final=}")
+    return final, just_info
+
 def edit_contacts():
     file_path = "Files/contacts.xlsx"
 
