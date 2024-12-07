@@ -513,12 +513,19 @@ def format_date(date_str):
         return date_str  # В случае ошибки возвращаем оригинальную строку
 
 
-# Функция для парсинга ответа AT+CMGL и извлечения SMS сообщений
+
 # Функция для парсинга ответа AT+CMGL и извлечения SMS сообщений
 def parse_sms_response(response):
     messages = []
     lines = response.splitlines()
     i = 0
+    '''
+    пример сообщения: 
+    +CMGL: 10,"REC READ","+79875324724",,"24/11/15,14:35:51+12"
+    Hello!
+    Или:
+    
+    '''
     while i < len(lines):
         if "+CMGL: " in lines[i]:
             parts = lines[i].split(",")
