@@ -1,27 +1,19 @@
-# подключаем библиотеки
 import FreeSimpleGUI as sg
-import random
-import os
+sg.theme_previewer()
+sg.theme('DarkTeal12')
+# Устанавливаем цвет внутри окна
+layout = [  [sg.Text('Некоторый текст в строке №1')],
+            [sg.Text('Введите «хоть что-нибудь» в строку №2'), sg.InputText()],
+            [sg.Button('Ввод'), sg.Button('Отмена')] ]
 
-
-# что будет внутри окна
-# первым описываем кнопку и сразу указываем размер шрифта
-layout = [[sg.Button('Новое число',enable_events=True, key='-FUNCTION-', font='Helvetica 16')],
-        # затем делаем текст
-        [sg.Text('Результат:', size=(25, 1), key='-text-', font='Helvetica 16')]]
-# рисуем окно
-window = sg.Window('Генератор случайных чисел', layout, size=(350,100))
-# запускаем основной бесконечный цикл
+# Создаем окно
+window = sg.Window('Название окна', layout)
+# Цикл для обработки "событий" и получения "значений" входных данных
 while True:
-    # получаем события, произошедшие в окне
     event, values = window.read()
-    # если нажали на крестик
-    # если нажали на кнопку
-    if event == '-FUNCTION-':
-        # запускаем связанную функцию
-        os.system("start https://youtu.be/VPRjCeoBqrI?si=E1ovF1nebfEpmOug")
-    if event in (sg.WIN_CLOSED, 'Exit'):
-        # выходим из цикла
+    if event == sg.WIN_CLOSED or event == 'Отмена':
+# если пользователь закрыл окно или нажал «Отмена»
         break
-# закрываем окно и освобождаем используемые ресурсы
+    print('Молодец, ты справился с вводом', values[0])
+
 window.close()
