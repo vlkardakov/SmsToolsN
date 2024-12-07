@@ -235,7 +235,6 @@ def add_contacts(file_path, new_contacts):
     wb.save(file_path)
     print(f"Контакты успешно добавлены в {file_path}")
 
-
 def send_smst():
     contacts_file = "Files/contacts.xlsx"
     sms_message = input("Введите сообщение (английскими буквами!): ")
@@ -295,7 +294,6 @@ def send_smst():
             break
         else:
             print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
-
 
 def delete_contacts(file_path, search_terms):
     wb = load_workbook(file_path)
@@ -477,6 +475,13 @@ import pandas as pd
 from openpyxl import Workbook
 #from com_port_checker import find_available_ports, send_at_command, modem_port
 # Функция для отправки AT команды и получения ответа
+
+def send_at_command0(ser, command, response_timeout=1):
+    ser.write((command + '\r\n').encode())
+    time.sleep(response_timeout)
+    response = ser.read_all().decode()
+    return response
+
 def send_at_command(port, command):
     modem = serial.Serial(port, 9600, timeout=5)
     modem.write((command + '\r\n').encode())
@@ -595,42 +600,38 @@ def combine_long_messages(messages):
 # Изменение функции read_sms_and_save
 def read_sms_and_save(port, contacts_file, output_file):
     try:
-        # Открываем COM порт
-        modem = serial.Serial(port, 9600, timeout=5)
-        time.sleep(1)
+        with serial.Serial(port, 9600, timeout=1) as ser:
+            response = send_at_command0(ser, 'AT+CMGL="ALL"')
 
+            # Обработка ответа и запись в Excel
+            sms_messages = parse_sms_response(response)
+            combined_messages = combine_long_messages(sms_messages)
 
-        # Читаем ответы
-        response = modem.read_all().decode()
-        modem.close()
+            # Проверяем, существует ли файл с контактами
+            if not os.path.exists(contacts_file):
+                print(f"Файл {contacts_file} не найден.")
+                return
 
-        # Обработка ответа и запись в Excel
-        sms_messages = parse_sms_response(response)
-        combined_messages = combine_long_messages(sms_messages)
+            contacts = load_contacts(contacts_file)
 
-        # Проверяем, существует ли файл с контактами
-        if not os.path.exists(contacts_file):
-            print(f"Файл {contacts_file} не найден.")
-            return
-
-        contacts = load_contacts(contacts_file)
-
-        # Вывод содержимого SMS
-        if combined_messages:
-            print()
-            print("Найдены SMS сообщения:", end = '')
-            for sms in combined_messages:
-                print('')
-                current_time = datetime.now().strftime('%H:%M:%S')  # Получаем текущее время
-                print(f"Отправитель: {sms['sender_number']}, Дата: {sms['date']}, Время: {current_time}, Сообщение: \n{sms['message']}")
-            append_to_excel(combined_messages, contacts, output_file)
-            # Удаление SMS по индексу
-            for sms in combined_messages:
-                delete_sms_by_index(port, sms['index'])
-        else:
-            cy = 1
-            if cy == 15:
+            # Вывод содержимого SMS
+            if combined_messages:
+                print()
+                print("Найдены SMS сообщения:", end = '')
+                for sms in combined_messages:
+                    print('')
+                    current_time = datetime.now().strftime('%H:%M:%S')  # Получаем текущее время
+                    print(f"Отправитель: {sms['sender_number']}, Дата: {sms['date']}, Время: {sms['time']}, Сообщение: \n{sms['message']}")
+                append_to_excel(combined_messages, contacts, output_file)
+                print("Добавлено, удаляем")
+                # Удаление SMS по индексу
+                for sms in combined_messages:
+                    print(f"удаляем {sms}")
+                    send_at_command0(ser, f"AT+CMGD={sms['index']}")
+            else:
                 cy = 1
+                if cy == 15:
+                    cy = 1
 
     except serial.SerialException as e:
         print(f"Ошибка открытия порта {port}: {e}")
@@ -669,14 +670,13 @@ from openpyxl.styles import Alignment, PatternFill
 def append_to_excel(sms_messages, contacts, output_file):
     if not sms_messages:  # Если нет новых сообщений, не записываем в таблицу
         return
-
     try:
         wb = load_workbook("Files/sms_log.xlsx", data_only=True)
         ws = wb.active
     except FileNotFoundError:
         wb = Workbook()
         ws = wb.active
-        ws.append(["Номер отправителя", "Имя контакта", "Сообщение", "Дата получения", "Текущая дата", "Текущее время"])
+        ws.append(["Номер отправителя", "Имя контакта", "Сообщение", "Дата получения", "Время получения"])
 
     settings = read_settings("Files/settings.txt")
     sleep_time = int(settings.get('sleep_time', 0))  # Значение sleep_time из файла настроек
@@ -706,7 +706,7 @@ def append_to_excel(sms_messages, contacts, output_file):
             ws.row_dimensions[existing_row[0].row].height = 13.7
         else:
             # Если не найдена существующая строка, добавляем новую
-            ws.append([sender_number, contact_name, message, date_received, current_date, current_time])
+            ws.append([sender_number, contact_name, message, date_received, current_time])
             # Устанавливаем высоту строки
             lines = message.count('\n') + 1
             ws.row_dimensions[ws.max_row].height = 13.7
@@ -783,6 +783,8 @@ import os
 import shutil
 from datetime import datetime
 
+
+
 def clear_logs():
     log_file = "Files/sms_log.xlsx"
     analysis_file = "Files/Analysis.txt"
@@ -826,9 +828,6 @@ def clear_logs():
 
     except Exception as e:
         print(f"Ошибка при очистке логов: {e}")
-
-
-
 
 def find_com_port():
     # Выполняем поиск порта из com_port_checker.py
@@ -952,6 +951,12 @@ def send_sms_to_contacts(file_path, message):
 
 from com_utils import modem_port
 
+def setup_modem(port):
+    with serial.Serial(port, 9600, timeout=1) as ser:
+        send_at_command0(ser, 'AT+CMGF=1')
+        send_at_command0(ser, 'AT+CPMS="ME","ME","ME"')
+        return "OK"
+
 def main():
     if modem_port == 'COM':
         while True:
@@ -988,6 +993,7 @@ def main():
 
 
     else:
+        setup_modem(modem_port)
         while True:
             print(Fore.LIGHTWHITE_EX+'Hello!')
             print()
