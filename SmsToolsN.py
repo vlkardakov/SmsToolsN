@@ -524,14 +524,23 @@ def parse_sms_response(response):
     +CMGL: 10,"REC READ","+79875324724",,"24/11/15,14:35:51+12"
     Hello!
     Или:
-    
+
     '''
     while i < len(lines):
         if "+CMGL: " in lines[i]:
             parts = lines[i].split(",")
             index = parts[0].split(": ")[1].strip()
             sender_number = parts[2].strip('"')
-            date_time = parts[4].strip('"')
+            date_and_time = lines[i].split(",,")[1].replace('"','').split(',')
+            print(f"{date_and_time=}")
+            date_dates = date_and_time[0].split("/")
+            date_date = f"{date_dates[2]}.{date_dates[1]}.{date_dates[0]}"
+            #print(f"ДАТА = {date_date}")
+
+            date_time = date_and_time[1].split("+")[0].split("-")[0]
+            #print(f"ВРЕМЯ = {date_time}")
+
+
             message_lines = []
 
             # Проверяем, есть ли следующая строка
@@ -559,21 +568,16 @@ def parse_sms_response(response):
 
             message = '\n'.join(decoded_lines)
 
-            # Проверка на наличие запятой и разделение строки
-            if ',' in date_time:
-                date, time = date_time.split(",")
-            else:
-                date = date_time
-                time = "00:00:00"  # Время по умолчанию
+
 
             # Преобразуем дату в формат DD/MM/YYYY
-            formatted_date = format_date(date.strip())
+            #formatted_date = format_date(date.strip())
 
             messages.append({
                 "index": index,
                 "sender_number": sender_number,
-                "date": formatted_date,
-                "time": time,
+                "date": date_date,
+                "time": date_time,
                 "message": message.strip()
             })
         i += 1
