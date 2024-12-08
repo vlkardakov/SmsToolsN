@@ -1,3 +1,4 @@
+from openpyxl.styles.builtins import total
 from pyexpat.errors import messages
 
 from SmsToolsN import *
@@ -51,10 +52,10 @@ def menu_contacts():
             contacts_data.append([el["name"], el["number"]])
 
     layout = [
-        [sg.Text('Имя:'), sg.InputText(key='name',size=(34,10)),sg.Button('Перезагрузить даные')],
+        [sg.Text('Имя:'), sg.InputText(key='name',size=(34,10)),sg.Button('Перезагрузить данные', bind_return_key=True)],
         [sg.Text('Телефон:'), sg.InputText(key='phone',size=(30,10))],
         [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Удалить выбранные'), sg.Button('Написать выбранным')],
-        [sg.Text('Список контактов:')],
+        [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(34,10))],
         [sg.Table(values=contacts_data,
                  headings=headings,
                  max_col_width=35,
@@ -78,7 +79,7 @@ def menu_contacts():
         print(event)
         print(values)
         
-        if event == 'table':  # ко��да кликаем по таблице
+        if event == 'table':  # когда кликаем по таблице
             selected_rows = values['table']
             for row_index in selected_rows:
                 selected_contact = contacts_data[row_index]
@@ -95,10 +96,26 @@ def menu_contacts():
                 new_contact = [values['name'], values['phone']]
                 contacts_data.append(new_contact)
                 window['table'].update(values=contacts_data)
+
+
+
                 print(f"Добавлен новый контакт: {new_contact}")
                 # Очищаем поля ввода
                 window['name'].update('')
                 window['phone'].update('')
+
+        if event == 'Перезагрузить данные':
+            # Загружаем существующие контакты
+            existing = search_contacts("Files/contacts.xlsx", values["args"])[1]
+
+            print(f"Контакты = {existing}")
+
+            # Преобразуем существующие контакты в формат для таблицы
+            contacts_data = []
+            if existing:
+                for el in existing:
+                    contacts_data.append([el["name"], el["number"]])
+            window["table"].update(values=contacts_data)
 
 
         if event == 'Очистить':
@@ -159,7 +176,9 @@ def get_messages():
 
     # Создание окна
     window = sg.Window('Получение сообщений', layout)
-    
+
+    total_messages = ""
+
     # Флаг для контроля постоянного получения
     continuous = False
 
@@ -173,8 +192,15 @@ def get_messages():
         if event == 'continuous_receive':
             continuous = values['continuous_receive']
             
-        if event == 'Получить' or (continuous and event == sg.TIMEOUT_KEY):
-            window["messages"].update(f"""{read_sms_and_save(modem_port, contacts_file, output_file)}""")
+        if event == 'Получить':# or (continuous and event == sg.TIMEOUT_KEY)
+            print("Получаем смс...")
+            log = read_sms_and_save(modem_port, contacts_file, output_file)
+            if log != '':
+                total_messages = f"{total_messages}{log}"
+            window["messages"].update(total_messages)
+
+
+
         if event == 'Очистить':
             window['messages'].update('')
             
