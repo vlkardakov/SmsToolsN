@@ -344,7 +344,11 @@ def search_contacts(file_path, search_terms):
     include_terms = [term for term in search_terms if not term.startswith('-')]
     exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
 
-    search_terms = search_terms.split()
+    if search_terms == "":
+        search_terms = ["9","8","7","6","5","4","3","2","1","0"]
+    else:
+        search_terms = search_terms.split()
+
 
     final_strings = []
 
@@ -352,15 +356,17 @@ def search_contacts(file_path, search_terms):
         if not search_term.startswith("-"):
             for row in ws.iter_rows(min_row=2, values_only=True):
                 phone_number, contact_name = row
-                string = f"{phone_number}::{contact_name}"
+                if phone_number:
+                    string = f"+7{phone_number}::{contact_name}".replace("    ","")
 
-                if search_term in string and string not in final_strings:
-                    final_strings.append(string)
+                    if search_term in string and string not in final_strings:
+                        final_strings.append(string)
         else:
             argument = search_term.replace("-","")
             for final_string  in final_strings:
                 if argument in final_string:
                     final_strings.remove(final_string)
+
 
     contacts_found = []
 
