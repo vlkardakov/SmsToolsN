@@ -4,7 +4,6 @@ from smspdudecoder.codecs import GSM
 from smspdudecoder.easy import read_incoming_sms
 
 """
-
 Шпаргалка по командам:
 Перезагрузить модем: AT+CFUN=1,1
 Задать память на память модема: AT+CPMS="ME","ME","ME"

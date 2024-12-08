@@ -72,12 +72,54 @@ def menu_analysing():
         analysis()
         err_msg("Успешно 👌")
 
-def sending(text, nums):
-    pass
+def sending(nums):
+    global modem_port
+    # Затем определяем интерфейс
+    layout = [
+        [sg.Text('Сообщение: '), sg.InputText(key='msg',size=(38,10)), sg.Button('Отправить!')],
+        [sg.Text('Журнал: ')],
+        [sg.Multiline(size=(50, 20), key='messages', autoscroll=True, reroute_stdout=True, reroute_stderr=False, write_only=True, disabled=True)],
+        [sg.Button('Выход')],
+    ]
+
+    # Создание окна
+    window = sg.Window('Рассылка', layout)
+
+    total_messages = ""
+
+    # Флаг для контроля постоянного получения
+    continuous = False
+
+    # Цикл событий
+    while True:
+        event, values = window.read(timeout=1000 if continuous else None)  # таймаут 1 секунда при постоянном получении
+
+        if event in (sg.WINDOW_CLOSED, 'Выход'):
+            break
+
+        if event == 'Отправить!' and values["msg"] and do_continue("Отправить сообщение?"):
+            print("Отправка..")
+            for num in nums:
+                send_sms(modem_port, num, values["msg"])
+                log = f"Сообщение отправлено {num_to_name(num)}"
+                total_messages = f"{total_messages}{log}\n"
+                window["messages"].update(total_messages)
+                time.sleep(0.1)
+
+
+
+        if event == 'Очистить':
+            window['messages'].update('')
+
+        if event == 'Сохранить':
+            # Здесь будет код сохранения сообщений
+            print("Сообщения сохранены")
+
+    window.close()
 
 
 def menu_contacts():
-
+    global can_modem
     def reload_data():
         # Загружаем существующие контакты
         existing = search_contacts("Files/contacts.xlsx", values["args"])[1]
@@ -102,8 +144,6 @@ def menu_contacts():
     # Создаем заголовки для таблицы
     headings = ['Имя', 'Телефон']
 
-
-
     # Преобразуем существующие контакты в формат для таблицы
     contacts_data = []
     if existing:
@@ -112,10 +152,10 @@ def menu_contacts():
     total_console = ""
 
     layout = [
-        [sg.Text('Имя:'), sg.InputText(key='name',size=(34,10)),sg.Button('Перезагрузить данные', bind_return_key=True)],
-        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(30,10)), sg.Button('Анализировать данные')],
+        [sg.Text('Имя:'), sg.InputText(key='name',size=(38,10)),sg.Button('Перезагрузить данные', bind_return_key=True)],
+        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(34,10)), sg.Button('Анализировать данные')],
         [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Удалить выбранные'), sg.Button('Написать выбранным')],
-        [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(34,10))],
+        [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(31,10))],
         [sg.Table(values=contacts_data,
                  headings=headings,
                  max_col_width=35,
@@ -184,6 +224,7 @@ def menu_contacts():
 
         if event == "Написать выбранным":
             if selected_numbers:
+                sending(selected_numbers)
                 print(selected_numbers)
             else:
                 err_msg("Сначала выберите контакты!")
@@ -195,6 +236,7 @@ def menu_contacts():
     window.close()
 
 def err_msg(text):
+    global can_modem
     # Затем определяем интерфейс
     layout = [
         [sg.Text(text), sg.Button('Смириться')]
@@ -212,10 +254,12 @@ def err_msg(text):
     window.close()
 
 def menu_main():
+    global can_modem
     # Затем определяем интерфейс
     layout = [
-        [sg.Button('Настройки'), sg.Button('Получить смс :(')],
-        [sg.Button('Меню добавления контактов'), sg.Button('Выход')],
+        #⟳🔄↻↺
+        [sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button('Получить смс', font='Helvetica 12 bold'), sg.Button("ⓘ", font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
+        [sg.Button('Меню добавления контактов', font='Helvetica 12 bold'), sg.Button('Выход', font='Helvetica 12 bold')],
 
     ]
 
@@ -234,6 +278,11 @@ def menu_main():
             menu_contacts()
         if event == 'Настройки':
             sets()
+        if event == '⟳':
+            res = restart_modem()
+            err_msg("Модем перезагружается, перезапустите программу.." if res else ("Не получилось перезагрузить модем." if can_modem else "Тут нечего перезагружать!"))
+        if event == "ⓘ":
+            open_files_folder()
     window.close()
 
 def get_messages():
@@ -263,7 +312,7 @@ def get_messages():
 
         if event == 'continuous_receive':
             continuous = values['continuous_receive']
-            
+
         if event == 'Получить':# or (continuous and event == sg.TIMEOUT_KEY)
             print("Получаем смс...")
             log = read_sms_and_save(modem_port, contacts_file, output_file)
@@ -275,7 +324,7 @@ def get_messages():
 
         if event == 'Очистить':
             window['messages'].update('')
-            
+
         if event == 'Сохранить':
             # Здесь будет код сохранения сообщений
             print("Сообщения сохранены")
@@ -339,9 +388,7 @@ def menu_choose_contacts():
 can_modem = False
 
 if __name__ == "__main__":
-    delete_contact(["+79875325498"])
     if modem_port != "COM":
         setup_modem(modem_port)
         can_modem = True
-    print(menu_choose_contacts())
     menu_main()

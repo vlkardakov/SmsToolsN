@@ -866,6 +866,8 @@ def create_pdu_message(phone_number, ucs2_message):
     pdu_message = (service_center_number + tp_mti + tp_mr + tp_da + tp_pid + tp_dcs + tp_vp + tp_udl + tp_ud)
     return pdu_message
 
+
+
 def send_sms(serial_port, phone_number, message, mode='text', debug=False):
     try:
         # Открываем серийный порт
@@ -874,15 +876,15 @@ def send_sms(serial_port, phone_number, message, mode='text', debug=False):
         print(f"Ошибка открытия порта {serial_port}: {e}")
         return False
 
-    time.sleep(1)  # Ждем немного, чтобы модем успел инициализироваться
+    time.sleep(0.5)  # Ждем немного, чтобы модем успел инициализироваться
 
     def send_text_mode():
         #ser.write(b'AT+CMGF=1\r')  # Устанавливаем текстовый режим
-        time.sleep(1)
+        time.sleep(0.1)
         ser.write(f'AT+CMGS="{phone_number}"\r'.encode())
-        time.sleep(1)
+        time.sleep(0.5)
         ser.write(message.encode() + b'\x1A')  # Заканчиваем сообщение Ctrl+Z (0x1A)
-        time.sleep(3)
+        time.sleep(0.5)
         return ser.read_all().decode()
 
     def send_pdu_mode():
@@ -929,6 +931,11 @@ def send_sms_to_contacts(file_path, message):
     for row in ws.iter_rows(min_row=2, values_only=True):  # Начинаем со второй строки (первая строка - заголовки)
         phone_number = row[0]
         send_sms(com_port, phone_number, message, 'text', debug)
+
+def restart_modem():
+    with serial.Serial(port, 9600, timeout=1) as ser:
+        res = send_at_command0(ser, 'AT+CFUN=1,1')
+        return True if "OK" in res else False
 
 from com_utils import modem_port
 
