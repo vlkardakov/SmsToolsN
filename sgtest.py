@@ -1,9 +1,13 @@
+from pyexpat.errors import messages
+
 from SmsToolsN import *
 import FreeSimpleGUI as sg
 
 # Сначала устанавливаем тему
 #sg.theme('DarkAmber')
 sg.theme('LightGreen3')
+contacts_file = "Files/contacts.xlsx"  # Путь к файлу с контактами
+output_file = "Files/sms_log.xlsx"
 
 def do_continue(text):
     # Затем определяем интерфейс
@@ -26,6 +30,7 @@ def do_continue(text):
         if event == "ДА":
             window.close()
             return True
+
 
 
 def menu_contacts():
@@ -73,7 +78,7 @@ def menu_contacts():
         print(event)
         print(values)
         
-        if event == 'table':  # когда кликаем по таблице
+        if event == 'table':  # ко��да кликаем по таблице
             selected_rows = values['table']
             for row_index in selected_rows:
                 selected_contact = contacts_data[row_index]
@@ -137,14 +142,47 @@ def menu_main():
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
         if event == 'Отправить смс :(' or event == "Получить смс :(":
-            err_msg("Эта функция пока  не поддерживается в графическом интерфейсе :(")
-
+            get_messages()
         if event == 'Меню добавления контактов':
             menu_contacts()
     window.close()
 
 def get_messages():
-    pass
+    # Затем определяем интерфейс
+    layout = [
+        [sg.Checkbox('Получать постоянно', key='continuous_receive', enable_events=True)],
+        [sg.Button('Получить'), sg.Button('Сохранить'), sg.Button('Очистить'), sg.Button('Выход')],
+        [sg.Text('Входящие сообщения:')],
+        [sg.Multiline(size=(60, 20), key='messages', autoscroll=True, reroute_stdout=True,
+                     reroute_stderr=False, write_only=True, disabled=True)],
+    ]
+
+    # Создание окна
+    window = sg.Window('Получение сообщений', layout)
+    
+    # Флаг для контроля постоянного получения
+    continuous = False
+
+    # Цикл событий
+    while True:
+        event, values = window.read(timeout=1000 if continuous else None)  # таймаут 1 секунда при постоянном получении
+
+        if event in (sg.WINDOW_CLOSED, 'Выход'):
+            break
+
+        if event == 'continuous_receive':
+            continuous = values['continuous_receive']
+            
+        if event == 'Получить' or (continuous and event == sg.TIMEOUT_KEY):
+            window["messages"].update(f"""{read_sms_and_save(modem_port, contacts_file, output_file)}""")
+        if event == 'Очистить':
+            window['messages'].update('')
+            
+        if event == 'Сохранить':
+            # Здесь будет код сохранения сообщений
+            print("Сообщения сохранены")
+
+    window.close()
 
 def menu_choose_contacts():
     # Затем определяем интерфейс
@@ -200,6 +238,11 @@ def menu_choose_contacts():
 
     window.close()
 
+can_modem = False
+
 if __name__ == "__main__":
+    if modem_port != "COM":
+        setup_modem(modem_port)
+        can_modem = True
     print(menu_choose_contacts())
     menu_main()

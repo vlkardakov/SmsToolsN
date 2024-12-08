@@ -374,15 +374,6 @@ def search_contacts(file_path, search_terms):
         num1, name1 = final_string.split("::")
         contacts_found.append({"num":num1,"name":name1})
 
-    """
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        phone_number, contact_name = row
-        if not search_terms:
-            contacts_found.append((phone_number, contact_name))
-        elif (any(term in phone_number or term in contact_name for term in include_terms) and
-              not any(term in phone_number or term in contact_name for term in exclude_terms)):
-            contacts_found.append((phone_number, contact_name))
-    """
     if not contacts_found:
         print("Нет контактов, соответствующих критериям поиска.")
         return ["Нет контактов, соответствующих критериям поиска."], []
@@ -577,6 +568,20 @@ def combine_long_messages(messages):
     for message in messages:
         combined_messages.append(message)
     return combined_messages
+
+def num_to_name(num):
+    wb = load_workbook("Files/contacts.xlsx")
+    ws = wb.active
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        phone_number, contact_name = row
+        if phone_number:
+            phone_number = f"+7{phone_number}"
+
+            if phone_number == num:
+                return contact_name
+    return False
+
 # Изменение функции read_sms_and_save
 def read_sms_and_save(port, contacts_file, output_file):
     try:
@@ -598,10 +603,10 @@ def read_sms_and_save(port, contacts_file, output_file):
             if combined_messages:
                 print()
                 print("Найдены SMS сообщения:", end = '')
+                log = ""
                 for sms in combined_messages:
                     print('')
-                    current_time = datetime.now().strftime('%H:%M:%S')  # Получаем текущее время
-                    print(f"Отправитель: {sms['sender_number']}, Дата: {sms['date']}, Время: {sms['time']}, Сообщение: \n{sms['message']}")
+                    log += f"{num_to_name(sms['sender_number'])}:\n{sms['message']}\nВремя: {sms['time']}\n\n"
                 append_to_excel(combined_messages, contacts, output_file)
                 print("Добавлено, удаляем")
                 # Удаление SMS по индексу
@@ -612,6 +617,7 @@ def read_sms_and_save(port, contacts_file, output_file):
                 cy = 1
                 if cy == 15:
                     cy = 1
+                return ""
 
     except serial.SerialException as e:
         print(f"Ошибка открытия порта {port}: {e}")
