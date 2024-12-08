@@ -117,10 +117,12 @@ def sending(nums):
 
     window.close()
 
-
+contacts_data = []
 def menu_contacts():
     global can_modem
+    global contacts_data
     def reload_data():
+        global contacts_data
         # Загружаем существующие контакты
         existing = search_contacts("Files/contacts.xlsx", values["args"])[1]
 
@@ -180,6 +182,7 @@ def menu_contacts():
         print(values)
 
         if event == 'table':  # когда кликаем по таблице
+
             selected_rows = values['table']
             selected_numbers = []
             for row_index in selected_rows:
