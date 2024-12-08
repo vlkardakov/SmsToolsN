@@ -584,46 +584,36 @@ def num_to_name(num):
 
 # Изменение функции read_sms_and_save
 def read_sms_and_save(port, contacts_file, output_file):
-    try:
-        with serial.Serial(port, 9600, timeout=1) as ser:
-            response = send_at_command0(ser, 'AT+CMGL="ALL"')
+    with serial.Serial(port, 9600, timeout=1) as ser:
+        response = send_at_command0(ser, 'AT+CMGL="ALL"')
 
-            # Обработка ответа и запись в Excel
-            sms_messages = parse_sms_response(response)
-            combined_messages = combine_long_messages(sms_messages)
+        # Обработка ответа и запись в Excel
+        sms_messages = parse_sms_response(response)
+        combined_messages = combine_long_messages(sms_messages)
 
-            # Проверяем, существует ли файл с контактами
-            if not os.path.exists(contacts_file):
-                print(f"Файл {contacts_file} не найден.")
-                return
+        # Проверяем, существует ли файл с контактами
+        if not os.path.exists(contacts_file):
+            print(f"Файл {contacts_file} не найден.")
+            return
 
-            contacts = load_contacts(contacts_file)
+        contacts = load_contacts(contacts_file)
 
-            # Вывод содержимого SMS
-            if combined_messages:
-                print()
-                print("Найдены SMS сообщения:", end = '')
-                log = ""
-                for sms in combined_messages:
-                    print('')
-                    log += f"{num_to_name(sms['sender_number'])}:\n{sms['message']}\nВремя: {sms['time']}\n\n"
-                append_to_excel(combined_messages, contacts, output_file)
-                print("Добавлено, удаляем")
-                # Удаление SMS по индексу
-                for sms in combined_messages:
-                    print(f"удаляем {sms}")
-                    send_at_command0(ser, f"AT+CMGD={sms['index']}")
-            else:
-                cy = 1
-                if cy == 15:
-                    cy = 1
-                return ""
+        # Вывод содержимого SMS
+        if combined_messages:
+            print()
+            print("Найдены SMS сообщения:", end='')
+            for sms in combined_messages:
+                print('')
+                current_time = datetime.now().strftime('%H:%M:%S')  # Получаем текущее время
+                print(
+                    f"Отправитель: {sms['sender_number']}, Дата: {sms['date']}, Время: {sms['time']}, Сообщение: \n{sms['message']}")
+            append_to_excel(combined_messages, contacts, output_file)
+            print("Добавлено, удаляем")
+            # Удаление SMS по индексу
+            for sms in combined_messages:
+                print(f"удаляем {sms}")
+                send_at_command0(ser, f"AT+CMGD={sms['index']}")
 
-    except serial.SerialException as e:
-        print(f"Ошибка открытия порта {port}: {e}")
-
-    except Exception as e:
-        print(f"Ошибка при чтении и записи смс: {e}")
 # Функция для загрузки контактов из файла Excel
 def load_contacts(filename):
     try:
@@ -673,7 +663,7 @@ def append_to_excel(sms_messages, contacts, output_file):
         for row in ws.iter_rows(min_row=2, values_only=False):
             if (row[0].value == sender_number and
                     row[3].value == date_received and
-                    abs((datetime.strptime(current_time, '%H:%M:%S') - datetime.strptime(row[5].value, '%H:%M:%S')).total_seconds()) <= sleep_time + 30):
+                    abs((datetime.strptime(current_time, '%H:%M:%S') - datetime.strptime(row[4].value, '%H:%M:%S')).total_seconds()) <= sleep_time + 30):
                 existing_row = row
                 break
 
