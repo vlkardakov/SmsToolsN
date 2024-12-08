@@ -72,6 +72,33 @@ def load_sms_log(filename):
         print(f"Ошибка при чтении файла SMS логов: {e}")
         return pd.DataFrame()
     return df
+
+
+def delete_contact(nums):
+    ii=0
+    try:
+            # Загружаем файл
+            wb = load_workbook("Files/contacts.xlsx")
+            ws = wb.active
+            # Находим все строки для удаления (в обратном порядке)
+            rows_to_delete = []
+            for row in range(ws.max_row, 1, -1):  # начинаем с конца, пропускаем заголовок
+                if f"+7{ws.cell(row=row, column=1).value}" in nums:
+                    ii+=1
+                    rows_to_delete.append(row)
+
+            # Удаляем найденные строки
+            for row_idx in rows_to_delete:
+                ws.delete_rows(row_idx, 1)
+
+            # Сохраняем изменения
+            wb.save("Files/contacts.xlsx")
+            return True, f"{ii} Контактов успешно удалено"
+
+    except Exception as e:
+        return False, f"Ошибка при удалении контакта: {str(e)}"
+
+
 def get_current_datetime():
     now = datetime.now()
     return now.strftime('%d/%m/%Y'), now.strftime('%H:%M:%S')
@@ -136,16 +163,16 @@ def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
 
     # Очистка 7-го столбца
     for row in ws.iter_rows(min_row=2, values_only=False):
-        row[6].value = ""
+        row[5].value = ""
 
     # Добавляем столбец "Отклонения", если его нет
-    if ws.max_column < 7:
+    if ws.max_column < 6:
         ws['G1'] = 'Отклонения'
 
     for row in ws.iter_rows(min_row=2, values_only=False):
         message = row[2].value
         if isinstance(message, str):  # Проверяем, является ли сообщение строкой
-            deviations = row[6].value if row[6].value else ""
+            deviations = row[5].value if row[5].value else ""
             battery_warning = False
             gps_warning = False
             for line in message.splitlines():
@@ -159,20 +186,20 @@ def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
                 deviations += "Бат! "
             if gps_warning:
                 deviations += "GPS! "
-            row[6].value = deviations
+            row[5].value = deviations
 
             # Устанавливаем цвет фона для 7-го столбца
             if "Бат! GPS! " in deviations:
-                row[6].fill = PatternFill(start_color='FFFF950E', end_color='FFFF950E', fill_type='solid')
+                row[5].fill = PatternFill(start_color='FFFF950E', end_color='FFFF950E', fill_type='solid')
             elif "GPS! " in deviations:
-                row[6].fill = PatternFill(start_color='FFF0F076', end_color='FFF0F076', fill_type='solid')
+                row[5].fill = PatternFill(start_color='FFF0F076', end_color='FFF0F076', fill_type='solid')
             elif "Бат! " in deviations:
-                row[6].fill = PatternFill(start_color='FFAFEEEE', end_color='FFAFEEEE', fill_type='solid')
+                row[5].fill = PatternFill(start_color='FFAFEEEE', end_color='FFAFEEEE', fill_type='solid')
 
     # Установка белой заливки для пустых ячеек в 7-м столбце
     for row in ws.iter_rows(min_row=2, values_only=False):
-        if row[6].value is None or row[6].value == "":
-            row[6].fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+        if row[5].value is None or row[5].value == "":
+            row[5].fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
 
     wb.save(sms_log_file)
 
@@ -659,7 +686,7 @@ def append_to_excel(sms_messages, contacts, output_file):
 
     for sms in sms_messages:
         sender_number = sms["sender_number"].replace(' ', '').replace('-', '')  # Убираем только пробелы и дефисы, сохраняем +
-        contact_name = contacts.get(sender_number.replace('+', ''), "Неизвестный")  # Для поиска в контактах убираем +
+        contact_name = num_to_name(sms['sender_number'])
         message = sms["message"] if sms["message"] else "Без текста"
         date_received = sms["date"]
         current_date = datetime.now().strftime('%d/%m/%Y')
@@ -751,8 +778,6 @@ import os
 
 import shutil
 from datetime import datetime
-
-
 
 def clear_logs():
     log_file = "Files/sms_log.xlsx"
@@ -852,7 +877,7 @@ def send_sms(serial_port, phone_number, message, mode='text', debug=False):
     time.sleep(1)  # Ждем немного, чтобы модем успел инициализироваться
 
     def send_text_mode():
-        ser.write(b'AT+CMGF=1\r')  # Устанавливаем текстовый режим
+        #ser.write(b'AT+CMGF=1\r')  # Устанавливаем текстовый режим
         time.sleep(1)
         ser.write(f'AT+CMGS="{phone_number}"\r'.encode())
         time.sleep(1)
@@ -880,17 +905,6 @@ def send_sms(serial_port, phone_number, message, mode='text', debug=False):
         print(f"SMS успешно отправлено на номер {phone_number} ")
         ser.close()
         return True
-    elif '+CMS ERROR: 500' in response:
-        print("Обнаружена ошибка +CMS ERROR: 500. Смена режима на PDU (UDP).")
-        response = send_pdu_mode()
-        if 'OK' in response:
-            print(f"SMS успешно отправлено на номер {phone_number} в режиме PDU")
-            ser.close()
-            return True
-        else:
-            print(f"Ошибка при отправке SMS на номер {phone_number}: {response}")
-            ser.close()
-            return False
     else:
         print(f"Ошибка при отправке SMS на номер {phone_number}: {response}")
         ser.close()
@@ -915,8 +929,6 @@ def send_sms_to_contacts(file_path, message):
     for row in ws.iter_rows(min_row=2, values_only=True):  # Начинаем со второй строки (первая строка - заголовки)
         phone_number = row[0]
         send_sms(com_port, phone_number, message, 'text', debug)
-
-
 
 from com_utils import modem_port
 

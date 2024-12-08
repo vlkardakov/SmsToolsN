@@ -1,14 +1,23 @@
+
 from openpyxl.styles.builtins import total
 from pyexpat.errors import messages
-
-from SmsToolsN import *
 import FreeSimpleGUI as sg
+import time
+
+with open("Files/color.txt", "r") as f:
+    COLOR = f.read()
+
 
 # Сначала устанавливаем тему
 #sg.theme('DarkAmber')
-sg.theme('LightGreen3')
+sg.theme(COLOR)
 contacts_file = "Files/contacts.xlsx"  # Путь к файлу с контактами
 output_file = "Files/sms_log.xlsx"
+
+
+from SmsToolsN import *
+
+
 
 def do_continue(text):
     # Затем определяем интерфейс
@@ -32,14 +41,64 @@ def do_continue(text):
             window.close()
             return True
 
+def sets():
+    all_themes = sg.theme_list()
+    # Затем определяем интерфейс
+    layout = [
+        [sg.Text("Настройка темы: "), sg.Combo(all_themes, default_value=sg.theme(), key='theme', enable_events=True)]
+
+    ]
+
+    # Создание окна
+    window = sg.Window('Настройки', layout)
+
+    # Цикл событий
+    while True:
+        event, values = window.read()
+
+        if event in (sg.WINDOW_CLOSED, 'theme'):  # когда меняется тема
+            new_theme = values['theme']
+            if new_theme:
+                sg.theme(new_theme)
+                with open("Files/color.txt", "w") as f:
+                    f.write(new_theme)
+            # Закрываем текущее окно и создаем новое с новой темой
+            window.close()
+            #menu_main()
+            return
+
+def menu_analysing():
+    if do_continue("Анализировать данные? 🤨"):
+        analysis()
+        err_msg("Успешно 👌")
+
+def sending(text, nums):
+    pass
 
 
 def menu_contacts():
+
+    def reload_data():
+        # Загружаем существующие контакты
+        existing = search_contacts("Files/contacts.xlsx", values["args"])[1]
+
+        print(f"Контакты = {existing}")
+
+        # Преобразуем существующие контакты в формат для таблицы
+        contacts_data = []
+        if existing:
+            for el in existing:
+                contacts_data.append([el["name"], el["number"]])
+        window["table"].update(values=contacts_data)
+
+
+
+    selected_numbers = []
     # Загружаем существующие контакты
     existing = search_contacts("Files/contacts.xlsx", "")[1]
 
     print(f"Контакты = {existing}")
-    
+
     # Создаем заголовки для таблицы
     headings = ['Имя', 'Телефон']
 
@@ -50,10 +109,11 @@ def menu_contacts():
     if existing:
         for el in existing:
             contacts_data.append([el["name"], el["number"]])
+    total_console = ""
 
     layout = [
         [sg.Text('Имя:'), sg.InputText(key='name',size=(34,10)),sg.Button('Перезагрузить данные', bind_return_key=True)],
-        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(30,10))],
+        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(30,10)), sg.Button('Анализировать данные')],
         [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Удалить выбранные'), sg.Button('Написать выбранным')],
         [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(34,10))],
         [sg.Table(values=contacts_data,
@@ -78,12 +138,14 @@ def menu_contacts():
         event, values = window.read()
         print(event)
         print(values)
-        
+
         if event == 'table':  # когда кликаем по таблице
             selected_rows = values['table']
+            selected_numbers = []
             for row_index in selected_rows:
                 selected_contact = contacts_data[row_index]
                 print(f"Выбран контакт: Имя = {selected_contact[0]}, Телефон = {selected_contact[1]}")
+                selected_numbers.append(selected_contact[1])
                 window['name'].update(selected_contact[0])
                 window['phone'].update(selected_contact[1])
 
@@ -91,13 +153,18 @@ def menu_contacts():
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
 
+        if event == "Анализировать данные":
+            reload_data()
+            menu_analysing()
+
         if event == 'Добавить контакт':
             if values['name'] and values['phone']:
+                add_contacts("Files/contacts.xlsx", [[values["phone"].replace("+7", ""),values["name"]]])
                 new_contact = [values['name'], values['phone']]
                 contacts_data.append(new_contact)
                 window['table'].update(values=contacts_data)
 
-
+                reload_data()
 
                 print(f"Добавлен новый контакт: {new_contact}")
                 # Очищаем поля ввода
@@ -105,23 +172,26 @@ def menu_contacts():
                 window['phone'].update('')
 
         if event == 'Перезагрузить данные':
-            # Загружаем существующие контакты
-            existing = search_contacts("Files/contacts.xlsx", values["args"])[1]
+            reload_data()
 
-            print(f"Контакты = {existing}")
+        if event == "Удалить выбранные":
+            if selected_numbers and do_continue(f"Удалить {len(selected_numbers)} контакта?" if len(selected_numbers)%10 < 5 and len(selected_numbers)%10 > 1 else f"Удалить {len(selected_numbers)} контактов?"):
+                delete_contact(selected_numbers)
+                reload_data()
+                err_msg("Успешно.")
+            else:
+                err_msg("Сначала выберите контакты!")
 
-            # Преобразуем существующие контакты в формат для таблицы
-            contacts_data = []
-            if existing:
-                for el in existing:
-                    contacts_data.append([el["name"], el["number"]])
-            window["table"].update(values=contacts_data)
-
+        if event == "Написать выбранным":
+            if selected_numbers:
+                print(selected_numbers)
+            else:
+                err_msg("Сначала выберите контакты!")
 
         if event == 'Очистить':
             window['name'].update('')
             window['phone'].update('')
-            
+
     window.close()
 
 def err_msg(text):
@@ -144,7 +214,7 @@ def err_msg(text):
 def menu_main():
     # Затем определяем интерфейс
     layout = [
-        [sg.Button('Отправить смс :('), sg.Button('Получить смс :(')],
+        [sg.Button('Настройки'), sg.Button('Получить смс :(')],
         [sg.Button('Меню добавления контактов'), sg.Button('Выход')],
 
     ]
@@ -162,6 +232,8 @@ def menu_main():
             get_messages()
         if event == 'Меню добавления контактов':
             menu_contacts()
+        if event == 'Настройки':
+            sets()
     window.close()
 
 def get_messages():
@@ -267,6 +339,7 @@ def menu_choose_contacts():
 can_modem = False
 
 if __name__ == "__main__":
+    delete_contact(["+79875325498"])
     if modem_port != "COM":
         setup_modem(modem_port)
         can_modem = True
