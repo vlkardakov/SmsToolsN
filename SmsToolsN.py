@@ -1,4 +1,6 @@
 import os
+from typing import final
+
 import colorama
 from colorama import init, Fore, Back, Style
 import warnings
@@ -38,7 +40,9 @@ else:
             modem_port = 'COM'
 from datetime import timedelta
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
 def load_contacts(filename):
+    print("what")
     try:
         df = pd.read_excel(filename)
         df = df.drop_duplicates()
@@ -54,8 +58,9 @@ def load_contacts(filename):
 
     contacts = {}
     for index, row in df.iterrows():
-        phone_number = str(row[df.columns[0]]).replace(' ', '').replace('-', '').replace('+', '')
-        contacts[phone_number] = row[df.columns[1]]
+        phone_number = str(row[df.columns[0]]).replace("а",'%').replace(' ', '').replace('-', '')
+        print(f"Phone nu = {phone_number}")
+        contacts[phone_number] = phone_number #row[df.columns[1]]
     return contacts
 def load_sms_log(filename):
     try:
@@ -339,7 +344,31 @@ def search_contacts(file_path, search_terms):
     include_terms = [term for term in search_terms if not term.startswith('-')]
     exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
 
+    search_terms = search_terms.split()
+
+    final_strings = []
+
+    for search_term in search_terms:
+        if not search_term.startswith("-"):
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                phone_number, contact_name = row
+                string = f"{phone_number}::{contact_name}"
+
+                if search_term in string and string not in final_strings:
+                    final_strings.append(string)
+        else:
+            argument = search_term.replace("-","")
+            for final_string  in final_strings:
+                if argument in final_string:
+                    final_strings.remove(final_string)
+
     contacts_found = []
+
+    for final_string in final_strings:
+        num1, name1 = final_string.split("::")
+        contacts_found.append({"num":num1,"name":name1})
+
+    """
     for row in ws.iter_rows(min_row=2, values_only=True):
         phone_number, contact_name = row
         if not search_terms:
@@ -347,7 +376,7 @@ def search_contacts(file_path, search_terms):
         elif (any(term in phone_number or term in contact_name for term in include_terms) and
               not any(term in phone_number or term in contact_name for term in exclude_terms)):
             contacts_found.append((phone_number, contact_name))
-
+    """
     if not contacts_found:
         print("Нет контактов, соответствующих критериям поиска.")
         return ["Нет контактов, соответствующих критериям поиска."], []
@@ -359,8 +388,8 @@ def search_contacts(file_path, search_terms):
     just_info = []
 
     for i, contact in enumerate(contacts_found):
-        just_info.append({"number":contact[0], "name": contact[1]})
-        string = f"{i+1}. {contact[0]} -- {contact[1]}"
+        just_info.append({"number":contact["num"], "name": contact["name"]})
+        string = f"{i+1}. {contact["num"]} -- {contact["name"]}"
         final.append(string)
         print(string)
     print(f"{final=}")
@@ -599,8 +628,9 @@ def load_contacts(filename):
 
     contacts = {}
     for index, row in df.iterrows():
+        print(row['Номер телефона'])
         # Приведение номеров телефонов к строковому формату без лишних символов
-        phone_number = str(row['Номер телефона']).replace(' ', '').replace('-', '').replace('+', '')
+        phone_number = str(row['Номер телефона']).replace(' ', '').replace('-', '')
         contacts[phone_number] = row['Имя маячка']
     return contacts
 from openpyxl.styles import Alignment, PatternFill

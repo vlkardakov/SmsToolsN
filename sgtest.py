@@ -4,12 +4,38 @@ import FreeSimpleGUI as sg
 # Сначала устанавливаем тему
 sg.theme('DarkAmber') 
 
-def menu_add_contacts():
+def do_continue(text):
     # Затем определяем интерфейс
     layout = [
-        [sg.Text('Имя:'), sg.InputText(key='name')],
-        [sg.Text('Телефон:'), sg.InputText(key='phone')],
-        [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Выход')],
+        [sg.Text(text)],
+        [sg.Button('НЕТ'), sg.Button('ДА')]
+    ]
+
+    # Создание окна
+    window = sg.Window('Уведомление', layout)
+
+    # Цикл событий
+    while True:
+        event, values = window.read()
+
+        if event in (sg.WINDOW_CLOSED, "НЕТ"):
+            window.close()
+            return False
+
+        if event == "ДА":
+            window.close()
+            return True
+
+
+def menu_contacts():
+    # Затем определяем интерфейс
+    existing = load_contacts('Files/contacts.xlsx')
+    print(f"Контакты = {existing}")
+
+    layout = [
+        [sg.Text('Имя:'), sg.InputText(key='name',size=(25,10))],
+        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(30,10))],
+        [sg.Button('Добавить контакт'), sg.Button('Добавить контакт') , sg.Button('Выход')],
         [sg.Text('Список контактов:')],
         [sg.Multiline(size=(40, 10), key='contacts', disabled=True)]
     ]
@@ -56,7 +82,7 @@ def err_msg(text):
     while True:
         event, values = window.read()
 
-        if event in (sg.WINDOW_CLOSED, 'OK'):
+        if event in (sg.WINDOW_CLOSED, 'Смириться'):
             break
     window.close()
 
@@ -81,7 +107,7 @@ def menu_main():
             err_msg("Эта функция пока  не поддерживается в графическом интерфейсе :(")
 
         if event == 'Меню добавления контактов':
-            menu_add_contacts()
+            menu_contacts()
     window.close()
 
 def menu_choose_contacts():
@@ -109,9 +135,13 @@ def menu_choose_contacts():
 
         if event == "Выбрать все существующие" or event == "Поиск":
             search = values['search']
+            numbers = []
             # Обновляем поле со списком контактов
-            contacts = search_contacts("Files/contacts.xlsx", search)[0]
-            # поиск здесь!!!!!! и в contacts_list
+            searched = search_contacts("Files/contacts.xlsx", search)
+            contacts = searched[0]
+            for el in searched[1]:
+                numbers.append(str(el["number"]))
+
             window['contacts'].update('')
             complete = ""
             for contact in contacts:
@@ -124,7 +154,8 @@ def menu_choose_contacts():
         if event == 'Применить':
             try:
                 window.close()
-                return contacts
+                if numbers:
+                    return numbers
 
             except Exception as e:
                 err_msg(f"Неизвестная ошибка {e}")
