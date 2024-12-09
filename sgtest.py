@@ -1257,6 +1257,39 @@ def menu_contacts():
 
     window.close()
 
+
+def timer(seconds: int):
+    # Создаем окно с таймером
+    layout = [
+        [sg.Text('Сколько осталось ждать:', font='Helvetica 12')],
+        [sg.Text('', size=(10, 1), font='Helvetica 20 bold', key='timer')],
+        [sg.Button('Отмена', font='Helvetica 10')]
+    ]
+
+    window = sg.Window('Таймер', layout, finalize=True)
+
+    # Запускаем таймер
+    start_time = time.time()
+    remaining = seconds
+
+    while remaining > 0:
+        event, values = window.read(timeout=100)  # Обновляем каждые 100мс
+
+        if event in (sg.WIN_CLOSED, 'Отмена'):
+            window.close()
+            return False
+
+        # Обновляем оставшееся время
+        current_time = time.time()
+        elapsed = int(current_time - start_time)
+        remaining = seconds - elapsed
+
+        # Обновляем текст таймера
+        window['timer'].update(f'{remaining} сек')
+
+    window.close()
+    return True
+
 def err_msg(text):
     global can_modem
     # Затем определяем интерфейс
@@ -1303,7 +1336,9 @@ def menu_main():
         if event == '⟳':
             res = restart_modem()
             kill_connect_manager()
-            err_msg("Модем перезагружается, перезапустите программу.." if res else ("Не получилось перезагрузить модем." if can_modem else "Тут нечего перезагружать!"))
+            err_msg("Модем перезагружается, переподключение через 40 секунд.." if res else ("Не получилось перезагрузить модем." if can_modem else "Тут нечего перезагружать!"))
+            timer(40)
+            restart_modem()
         if event == "ⓘ":
             open_files_folder()
     window.close()
