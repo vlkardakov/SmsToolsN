@@ -887,7 +887,7 @@ def send_sms(serial_port, phone_number, message, mode='text', debug=False):
         time.sleep(0.5)
         return ser.read_all().decode()
 
-    def send_pdu_mode():
+    def send_pdu_mode(message, phone_number):
         ser.write(b'AT+CMGF=0\r')  # Устанавливаем режим PDU
         time.sleep(1)
         ucs2_message = text_to_ucs2(message)
