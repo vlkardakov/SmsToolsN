@@ -1180,9 +1180,10 @@ def menu_contacts():
             contacts_data.append([el["name"], el["number"]])
     total_console = ""
 
+
     layout = [
-        [sg.Text('Имя:'), sg.InputText(key='name',size=(38,10)),sg.Button('Перезагрузить данные', bind_return_key=True), sg.Button("Получить сообщения", key="get")],
-        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(34,10)), sg.Button('Анализировать данные'), sg.Text("Пустая кнопка")],
+        [sg.Text('Имя:'), sg.InputText(key='name',size=(38,10)), sg.Button("Получить сообщения", key="get"), sg.Button('Перезагрузить данные', bind_return_key=True), sg.Button("ⓘ", font='Helvetica 12 bold')],
+        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(34,10)), sg.Button('Анализировать данные'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
         [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Удалить выбранные'), sg.Button('Написать выбранным')],
         [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(27,10)), sg.Button("Выбрать все", key="choose_all")],
         [sg.Table(values=contacts_data,
@@ -1195,7 +1196,8 @@ def menu_contacts():
                  key='table',
                  enable_events=True,
                  size=(60, 20),
-                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED)],
+                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(63, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
+                     reroute_stderr=False, write_only=True, disabled=True)],
         [sg.Button('Сохранить'), sg.Button('Выход')]
     ]
 
@@ -1205,8 +1207,9 @@ def menu_contacts():
     # Цикл событий
     while True:
         event, values = window.read()
-        print(event)
-        print(values)
+        #print("Окно прочитано ;D")
+        #print(event)
+        #print(values)
 
         if event == 'table':  # когда кликаем по таблице
 
@@ -1223,9 +1226,31 @@ def menu_contacts():
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
 
+        if event == 'Настройки':
+            sets()
+
+        if event == '⟳':
+            if do_continue("Перезагрузить модем (40 секунд)?"):
+                res = restart_modem()
+                kill_connect_manager()
+                timer(40)
+                kill_connect_manager()
+                time.sleep(2)
+                setup_modem(modem_port)
+
+        if event == "ⓘ":
+            open_files_folder()
+
         if event == "Анализировать данные":
             reload_data()
             menu_analysing()
+
+        if event == "choose_all":
+            ids_to_choose = []
+            for i in range(len(contacts_data)):
+                ids_to_choose.append(i)
+            window["table"].update(ids_to_choose)
+            pass
 
         if event == 'Добавить контакт':
             if values['name'] and values['phone']:
@@ -1324,7 +1349,6 @@ def menu_main():
     # Затем определяем интерфейс
     layout = [
         #⟳🔄↻↺
-        [sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button('Инструкция', font='Helvetica 12 bold'), sg.Button("ⓘ", font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
         [sg.Button('Запустить меню программы.', font='Helvetica 12 bold'), sg.Button('Выход', font='Helvetica 12 bold')],
 
     ]
@@ -1342,19 +1366,10 @@ def menu_main():
             get_messages()
         if event == 'Запустить меню программы.':
             menu_contacts()
-        if event == 'Настройки':
-            sets()
-        if event == '⟳':
-            if do_continue("Перезагрузить модем (40 секунд)?"):
-                res = restart_modem()
-                kill_connect_manager()
-                timer(40)
-                kill_connect_manager()
-                time.sleep(2)
-                setup_modem(modem_port)
 
-        if event == "ⓘ":
-            open_files_folder()
+
+
+
     window.close()
 
 def get_messages():
@@ -1458,7 +1473,10 @@ def menu_choose_contacts():
 can_modem = False
 
 if __name__ == "__main__":
+    kill_connect_manager()
     if modem_port != "COM":
         setup_modem(modem_port)
         can_modem = True
+    elif modem_port == "COM" and do_continue("Модем не подключен. Подключите модем и запустите Connect Manager."):
+        err_msg("Приходите в следующем обновлении! :D")
     menu_main()
