@@ -1,9 +1,18 @@
-
 from openpyxl.styles.builtins import total
 from pyexpat.errors import messages
 import FreeSimpleGUI as sg
-import time
+import psutil
+import serial
+import serial.tools.list_ports as list_ports
+import os
+import colorama
+from colorama import init, Fore, Back, Style
+import warnings
 
+main_window = None
+
+
+colorama.init()
 with open("Files/color.txt", "r") as f:
     COLOR = f.read()
 
@@ -15,9 +24,7 @@ contacts_file = "Files/contacts.xlsx"  # Путь к файлу с контак�
 output_file = "Files/sms_log.xlsx"
 
 
-import serial
-import serial.tools.list_ports as list_ports
-import os
+
 
 
 
@@ -66,90 +73,50 @@ def send_at_command(port, debug=False):
             print(f"Не удалось открыть порт {port}.              - debug")
         return None
 
-# Находим все доступные COM порты
-available_ports = find_available_ports()
-
-if not available_ports:
-    modem_port = 'COM'
-else:
-    num_ports = len(available_ports)
-    if debug_mode:
-        if num_ports == 1:
-            print(f"Найден 1 доступный порт, попытка подключения...")
-        else:
-            print(f"Найдено {num_ports} возможных порта, попытка подключения...")
-
-    # Проверяем настройки отладки из файла settings.txt
-    settings_file = "Files/settings.txt"
-    debug_mode = False
-    settings = read_settings(settings_file)
-    if settings.get('debug') == '1':
-        debug_mode = True
-
-    # Проходим по каждому доступному порту
-    modem_port = None
-    for port in available_ports:
-        if debug_mode:
-            print(f"Отправка AT команды на порт {port}...        - debug")
-        response = send_at_command(port, debug_mode)
-        if response:
-            if debug_mode:
-                print(f"Ответ от порта {port}: {response}                    - debug")
-            # Сохраняем первый найденный порт и завершаем выполнение
-            modem_port = port
-            break
-    if debug_mode:
-        if modem_port is None:
-            print("Не удалось подключить модем!")
-        else:
-            print("Модем подключен!                           - debug")
-            if debug_mode:
-                print(f"Модем найден на порту {modem_port}!                - debug")
-
-# Теперь вы можете использовать переменную modem_port
-if debug_mode:
-    print("Модем порт: ", modem_port, '                         - debug')
-
-
 import os
 from typing import final
+available_ports = None
+modem_port = None
+debug_mode = False
 
-import colorama
-from colorama import init, Fore, Back, Style
-import warnings
-colorama.init()
-# Находим все доступные COM порты
-available_ports = find_available_ports()
+def find_modem():
+    global modem_port
+    global debug_mode
+    # Находим все доступные COM порты
+    available_ports = find_available_ports()
 
-if not available_ports:
-    print(Fore.LIGHTWHITE_EX+"Не удалось найти модем.")
-    print('Функции отправки и принятия СМС не будут работать.', Fore.LIGHTWHITE_EX)
+    if not available_ports:
+        print(Fore.LIGHTWHITE_EX+"Не удалось найти модем.")
+        print('Функции отправки и принятия СМС не будут работать.', Fore.LIGHTWHITE_EX)
 
-else:
-    num_ports = len(available_ports)
-    # Проверяем настройки отладки из файла settings.txt
-    settings_file = "Files/settings.txt"
-    debug_mode = False
-    if os.path.exists(settings_file):
-        with open(settings_file, 'r') as file:
-            for line in file:
-                if line.strip() == 'debug = 1':
-                    debug_mode = True
-                    break
+    else:
+        num_ports = len(available_ports)
+        # Проверяем настройки отладки из файла settings.txt
+        settings_file = "Files/settings.txt"
+        debug_mode = False
+        if os.path.exists(settings_file):
+            with open(settings_file, 'r') as file:
+                for line in file:
+                    if line.strip() == 'debug = 1':
+                        debug_mode = True
+                        break
 
-    # Проходим по каждому доступному порту
-    for port in available_ports:
-        #if debug_mode:
-            #print(f"Отправка AT команды на порт {port}...        debug")
-        response = send_at_command(port)
-        if response:
+        # Проходим по каждому доступному порту
+        for port in available_ports:
             #if debug_mode:
-                #print(f"Ответ от порта {port}: {response}")
-            # Сохраняем первый найденный порт и завершаем выполнение
-            modem_port = port
-            break
-        if not available_ports:
-            modem_port = 'COM'
+                #print(f"Отправка AT команды на порт {port}...        debug")
+            response = send_at_command(port)
+            if response:
+                #if debug_mode:
+                    #print(f"Ответ от порта {port}: {response}")
+                # Сохраняем первый найденный порт и завершаем выполнение
+                modem_port = port
+                break
+            if not available_ports:
+                modem_port = 'COM'
+
+find_modem()
+
 from datetime import timedelta
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -525,9 +492,9 @@ def search_contacts(file_path, search_terms):
 
     for i, contact in enumerate(contacts_found):
         just_info.append({"number":contact["num"], "name": contact["name"]})
-        string = f"{i+1}. {contact["num"]} -- {contact["name"]}"
-        final.append(string)
-        print(string)
+        #string = f"{i+1}. {contact["num"]} -- {contact["name"]}"
+        #final.append(string)
+        #print(string)
     print(f"{final=}")
     return final, just_info
 
@@ -1045,7 +1012,8 @@ def send_sms_to_contacts(file_path, message):
         send_sms(com_port, phone_number, message, 'text', debug)
 
 def restart_modem():
-    with serial.Serial(port, 9600, timeout=1) as ser:
+    global modem_port
+    with serial.Serial(modem_port, 9600, timeout=1) as ser:
         res = send_at_command0(ser, 'AT+CFUN=1,1')
         return True if "OK" in res else False
 
@@ -1111,6 +1079,25 @@ def menu_analysing():
     if do_continue("Анализировать данные? 🤨"):
         analysis()
         err_msg("Успешно 👌")
+
+def kill_connect_manager():
+    try:
+        # Ищем процесс Connect Manager
+        for proc in psutil.process_iter(['name']):
+            if proc.info['name'] and 'Connect Manager.exe' in proc.info['name']:
+                print(f"Найден процесс Connect Manager (PID: {proc.pid})")
+                # Принудительно завершаем процесс
+                proc.kill()
+                print("Процесс успешно завершен")
+                return True
+
+        print("Процесс Connect Manager.exe не найден")
+        return False
+
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+        return False
+
 
 def sending(nums):
     global modem_port
@@ -1193,14 +1180,15 @@ def menu_contacts():
             contacts_data.append([el["name"], el["number"]])
     total_console = ""
 
+
     layout = [
-        [sg.Text('Имя:'), sg.InputText(key='name',size=(38,10)),sg.Button('Перезагрузить данные', bind_return_key=True)],
-        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(34,10)), sg.Button('Анализировать данные')],
+        [sg.Text('Имя:'), sg.InputText(key='name',size=(38,10)), sg.Button("Получить сообщения", key="get"), sg.Button('Перезагрузить данные', bind_return_key=True), sg.Button("ⓘ", font='Helvetica 12 bold')],
+        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(34,10)), sg.Button('Анализировать данные'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
         [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Удалить выбранные'), sg.Button('Написать выбранным')],
-        [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(31,10))],
+        [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(27,10)), sg.Button("Выбрать все", key="choose_all")],
         [sg.Table(values=contacts_data,
                  headings=headings,
-                 max_col_width=35,
+                 max_col_width=55,
                  auto_size_columns=True,
                  alternating_row_color="",
                  justification='left',
@@ -1208,7 +1196,8 @@ def menu_contacts():
                  key='table',
                  enable_events=True,
                  size=(60, 20),
-                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED)],
+                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(63, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
+                     reroute_stderr=False, write_only=True, disabled=True)],
         [sg.Button('Сохранить'), sg.Button('Выход')]
     ]
 
@@ -1218,8 +1207,9 @@ def menu_contacts():
     # Цикл событий
     while True:
         event, values = window.read()
-        print(event)
-        print(values)
+        #print("Окно прочитано ;D")
+        #print(event)
+        #print(values)
 
         if event == 'table':  # когда кликаем по таблице
 
@@ -1236,9 +1226,31 @@ def menu_contacts():
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
 
+        if event == 'Настройки':
+            sets()
+
+        if event == '⟳':
+            if do_continue("Перезагрузить модем (40 секунд)?"):
+                res = restart_modem()
+                kill_connect_manager()
+                timer(40)
+                kill_connect_manager()
+                time.sleep(2)
+                setup_modem(modem_port)
+
+        if event == "ⓘ":
+            open_files_folder()
+
         if event == "Анализировать данные":
             reload_data()
             menu_analysing()
+
+        if event == "choose_all":
+            ids_to_choose = []
+            for i in range(len(contacts_data)):
+                ids_to_choose.append(i)
+            window["table"].update(ids_to_choose)
+            pass
 
         if event == 'Добавить контакт':
             if values['name'] and values['phone']:
@@ -1275,8 +1287,44 @@ def menu_contacts():
         if event == 'Очистить':
             window['name'].update('')
             window['phone'].update('')
+        if event == "get":
+            get_messages()
 
     window.close()
+
+
+
+def timer(seconds: int):
+    # Создаем окно с таймером
+    layout = [
+        [sg.Text('Сколько осталось ждать:', font='Helvetica 12')],
+        [sg.Text('', size=(10, 1), font='Helvetica 20 bold', key='timer')],
+        #[sg.Button('Отмена', font='Helvetica 10')]
+    ]
+
+    window = sg.Window('Таймер', layout, finalize=True)
+
+    # Запускаем таймер
+    start_time = time.time()
+    remaining = seconds
+
+    while remaining > 0:
+        event, values = window.read(timeout=100)  # Обновляем каждые 100мс
+
+        if event in (sg.WIN_CLOSED, 'Отмена'):
+            window.close()
+            return False
+
+        # Обновляем оставшееся время
+        current_time = time.time()
+        elapsed = int(current_time - start_time)
+        remaining = seconds - elapsed
+
+        # Обновляем текст таймера
+        window['timer'].update(f'{remaining} сек')
+
+    window.close()
+    return True
 
 def err_msg(text):
     global can_modem
@@ -1301,7 +1349,6 @@ def menu_main():
     # Затем определяем интерфейс
     layout = [
         #⟳🔄↻↺
-        [sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button('Инструкция', font='Helvetica 12 bold'), sg.Button("ⓘ", font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
         [sg.Button('Запустить меню программы.', font='Helvetica 12 bold'), sg.Button('Выход', font='Helvetica 12 bold')],
 
     ]
@@ -1317,22 +1364,18 @@ def menu_main():
             break
         if event == "":
             get_messages()
-        if event == 'Запустить меню программы':
+        if event == 'Запустить меню программы.':
             menu_contacts()
-        if event == 'Настройки':
-            sets()
-        if event == '⟳':
-            res = restart_modem()
-            err_msg("Модем перезагружается, перезапустите программу.." if res else ("Не получилось перезагрузить модем." if can_modem else "Тут нечего перезагружать!"))
-        if event == "ⓘ":
-            open_files_folder()
+
+
+
+
     window.close()
 
 def get_messages():
     # Затем определяем интерфейс
     layout = [
-        [sg.Checkbox('Получать постоянно', key='continuous_receive', enable_events=True)],
-        [sg.Button('Получить'), sg.Button('Сохранить'), sg.Button('Очистить'), sg.Button('Выход')],
+        [sg.Button('Получить'), sg.Button('Выход')],
         [sg.Text('Входящие сообщения:')],
         [sg.Multiline(size=(60, 20), key='messages', autoscroll=True, reroute_stdout=True,
                      reroute_stderr=False, write_only=True, disabled=True)],
@@ -1371,7 +1414,6 @@ def get_messages():
         if event == 'Сохранить':
             # Здесь будет код сохранения сообщений
             print("Сообщения сохранены")
-
     window.close()
 
 def menu_choose_contacts():
@@ -1431,7 +1473,10 @@ def menu_choose_contacts():
 can_modem = False
 
 if __name__ == "__main__":
+    kill_connect_manager()
     if modem_port != "COM":
         setup_modem(modem_port)
         can_modem = True
+    elif modem_port == "COM" and do_continue("Модем не подключен. Подключите модем и запустите Connect Manager."):
+        err_msg("Приходите в следующем обновлении! :D")
     menu_main()
