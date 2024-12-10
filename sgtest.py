@@ -27,7 +27,6 @@ output_file = "Files/sms_log.xlsx"
 
 
 
-
 def find_available_ports():
     """Функция для поиска всех доступных COM портов."""
     ports = list(list_ports.comports())
@@ -117,6 +116,20 @@ def find_modem():
 
 find_modem()
 
+from gsmmodem.modem import GsmModem
+
+pdu_mode = False
+def best_send(message, recipient_numbers, pdu):
+    global modem_port
+
+    modem = GsmModem(modem_port, 9600)
+    modem.smsTextMode = pdu  # use PDU mode
+    modem.connect("")
+    for recipient_number in recipient_numbers:
+        modem.sendSms(recipient_number, message)
+
+    modem.close()
+
 from datetime import timedelta
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -203,7 +216,7 @@ def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
 
     # Получаем номера телефонов, которые отправляли SMS за последние сутки
     recent_sms = sms_log[sms_log.iloc[:, date_column_index].isin([today_date, yesterday_date])]
-    recent_sms_numbers = recent_sms.iloc[:, phone_column_index].str.replace(' ', '').str.replace('-', '').str.replace('+', '').unique()
+    recent_sms_numbers = recent_sms.iloc[:, phone_column_index].str.replace(' ', '').str.replace('-', '').replace("+7","").unique()
 
     # Определяем контакты, которые не прислали SMS за последние сутки
     missing_contacts = {number: name for number, name in contacts.items() if number not in recent_sms_numbers}
@@ -286,8 +299,8 @@ def analyze_sms_log(contacts_file, sms_log_file, analysis_file):
         f.write("\n\n")
         f.write(analysis_content)
 
-    print("Анализ:")
-    print(analysis_content)
+    #print("Анализ:")
+    #print(analysis_content)
     print(f"Анализ номер {new_analysis_number} успешно добавлен в файл {analysis_file}.")
 def analysis():
     contacts_file = "Files/contacts.xlsx"
@@ -495,9 +508,8 @@ def search_contacts(file_path, search_terms):
         #string = f"{i+1}. {contact["num"]} -- {contact["name"]}"
         #final.append(string)
         #print(string)
-    print(f"{final=}")
+    #print(f"{final=}")
     return final, just_info
-
 def edit_contacts():
     file_path = "Files/contacts.xlsx"
 
@@ -618,7 +630,7 @@ def parse_sms_response(response):
             index = parts[0].split(": ")[1].strip()
             sender_number = parts[2].strip('"')
             date_and_time = lines[i].split(",,")[1].replace('"','').split(',')
-            print(f"{date_and_time=}")
+            #print(f"{date_and_time=}")
             date_dates = date_and_time[0].split("/")
             date_date = f"{date_dates[2]}.{date_dates[1]}.{date_dates[0]}"
             #print(f"ДАТА = {date_date}")
@@ -678,12 +690,12 @@ def combine_long_messages(messages):
 def num_to_name(num):
     wb = load_workbook("Files/contacts.xlsx")
     ws = wb.active
-    print(f"Искомый номер: {num}")
+    #print(f"Искомый номер: {num}")
     for row in ws.iter_rows(min_row=2, values_only=True):
         phone_number, contact_name = row
         if phone_number:
-            phone_number = f"+7{phone_number}"
-            print(f"Номер контакта: {phone_number}")
+            phone_number = f"+7{phone_number}".replace(" ", "")
+            #print(f"Номер контакта: {phone_number}")
 
             if phone_number == num:
                 return contact_name
@@ -692,7 +704,7 @@ def num_to_name(num):
 # Изменение функции read_sms_and_save
 def read_sms_and_save(port, contacts_file, output_file):
         with serial.Serial(port, 9600, timeout=1) as ser:
-            print("Проверяем...")
+            #print("Проверяем...")
             response = send_at_command0(ser, 'AT+CMGL="ALL"')
 
             # Обработка ответа и запись в Excel
@@ -708,7 +720,7 @@ def read_sms_and_save(port, contacts_file, output_file):
 
             # Вывод содержимого SMS
             if combined_messages:
-                print()
+                #print()
                 #print("Найдены SMS сообщения:", end = '')
                 log = ""
                 for sms in combined_messages:
@@ -718,7 +730,7 @@ def read_sms_and_save(port, contacts_file, output_file):
                 #print("Добавлено, удаляем")
                 # Удаление SMS по индексу
                 for sms in combined_messages:
-                    print(f"удаляем {sms}")
+                    #print(f"удаляем {sms}")
                     send_at_command0(ser, f"AT+CMGD={sms['index']}")
                 return log
             else:
@@ -743,7 +755,7 @@ def load_contacts(filename):
 
     contacts = {}
     for index, row in df.iterrows():
-        print(row['Номер телефона'])
+        #print(row['Номер телефона'])
         # Приведение номеров телефонов к строковому формату без лишних символов
         phone_number = str(row['Номер телефона']).replace(' ', '').replace('-', '')
         contacts[phone_number] = row['Имя маячка']
@@ -926,91 +938,6 @@ def read_settings(settings_file):
                 continue
     return settings
 
-def text_to_ucs2(text):
-    ucs2_text = text.encode('utf-16-be').hex().upper()
-    return ucs2_text
-
-def create_pdu_message(phone_number, ucs2_message):
-    # Здесь мы создаем PDU-сообщение. Это пример, вам нужно будет адаптировать его под ваши нужды
-    service_center_number = "00"  # Используем номер сервисного центра по умолчанию
-    tp_mti = "01"  # SMS-SUBMIT
-    tp_mr = "00"  # Message reference
-    tp_da = "91" + phone_number[1:]  # Номер получателя в международном формате (без '+')
-    tp_pid = "00"  # Protocol identifier
-    tp_dcs = "08"  # Data coding scheme (UCS2)
-    tp_vp = "AA"  # Validity period
-    tp_udl = "{:02X}".format(len(ucs2_message) // 2)  # Length of user data
-    tp_ud = ucs2_message
-
-    pdu_message = (service_center_number + tp_mti + tp_mr + tp_da + tp_pid + tp_dcs + tp_vp + tp_udl + tp_ud)
-    return pdu_message
-
-
-
-def send_sms(serial_port, phone_number, message, mode='text', debug=False):
-    try:
-        # Открываем серийный порт
-        ser = serial.Serial(serial_port, 9600, timeout=5)
-    except serial.SerialException as e:
-        print(f"Ошибка открытия порта {serial_port}: {e}")
-        return False
-
-    time.sleep(0.5)  # Ждем немного, чтобы модем успел инициализироваться
-
-    def send_text_mode():
-        #ser.write(b'AT+CMGF=1\r')  # Устанавливаем текстовый режим
-        time.sleep(0.1)
-        ser.write(f'AT+CMGS="{phone_number}"\r'.encode())
-        time.sleep(0.5)
-        ser.write(message.encode() + b'\x1A')  # Заканчиваем сообщение Ctrl+Z (0x1A)
-        time.sleep(0.5)
-        return ser.read_all().decode()
-
-    def send_pdu_mode():
-        ser.write(b'AT+CMGF=0\r')  # Устанавливаем режим PDU
-        time.sleep(1)
-        ucs2_message = text_to_ucs2(message)
-        pdu_message = create_pdu_message(phone_number, ucs2_message)
-        ser.write(f'AT+CMGS={len(pdu_message) // 2}\r'.encode())
-        time.sleep(1)
-        ser.write(pdu_message.encode() + b'\x1A')  # Заканчиваем сообщение Ctrl+Z (0x1A)
-        time.sleep(3)
-        return ser.read_all().decode()
-
-    response = send_text_mode()
-
-    if debug:
-        print(f"Модем ответил: {response} -debug")
-
-    if 'OK' in response:
-        print(f"SMS успешно отправлено на номер {phone_number} ")
-        ser.close()
-        return True
-    else:
-        print(f"Ошибка при отправке SMS на номер {phone_number}: {response}")
-        ser.close()
-        return False
-
-def send_sms_to_contacts(file_path, message):
-    if not os.path.exists(file_path):
-        print(f"Файл {file_path} не существует.")
-        return
-
-    settings = read_settings("Files/settings.txt")
-    debug = settings.get('debug') == '1'
-
-    wb = load_workbook(file_path)
-    ws = wb.active
-
-    com_port = find_com_port()
-    if not com_port:
-        print("Не удалось найти COM-порт GSM модема.")
-        return
-
-    for row in ws.iter_rows(min_row=2, values_only=True):  # Начинаем со второй строки (первая строка - заголовки)
-        phone_number = row[0]
-        send_sms(com_port, phone_number, message, 'text', debug)
-
 def restart_modem():
     global modem_port
     with serial.Serial(modem_port, 9600, timeout=1) as ser:
@@ -1024,8 +951,6 @@ def setup_modem(port):
         send_at_command0(ser, 'AT+CMGF=1')
         send_at_command0(ser, 'AT+CPMS="ME","ME","ME"')
         return "OK"
-
-
 
 def do_continue(text):
     # Затем определяем интерфейс
@@ -1103,7 +1028,8 @@ def sending(nums):
     global modem_port
     # Затем определяем интерфейс
     layout = [
-        [sg.Text('Сообщение: '), sg.InputText(key='msg',size=(38,10)), sg.Button('Отправить!')],
+        [sg.Text('Сообщение: '), sg.InputText(key='msg',size=(38,10)), sg.Checkbox('PDU режим', default=False, key='pdu')],
+        [sg.Button('Отправить!')],
         [sg.Text('Журнал: ')],
         [sg.Multiline(size=(50, 20), key='messages', autoscroll=True, reroute_stdout=True, reroute_stderr=False, write_only=True, disabled=True)],
         [sg.Button('Выход')],
@@ -1126,12 +1052,12 @@ def sending(nums):
 
         if event == 'Отправить!' and values["msg"] and do_continue("Отправить сообщение?"):
             print("Отправка..")
-            for num in nums:
-                send_sms(modem_port, num, values["msg"])
-                log = f"Сообщение отправлено {num_to_name(num)}"
-                total_messages = f"{total_messages}{log}\n"
-                window["messages"].update(total_messages)
-                time.sleep(0.1)
+            best_send(values["msg"], nums, values["pdu"])
+            log = f"Сообщения отправлены! :D"
+            total_messages = f"{total_messages}{log}\n"
+            window["messages"].update(total_messages)
+            time.sleep(0.1)
+
 
 
 
@@ -1153,7 +1079,7 @@ def menu_contacts():
         # Загружаем существующие контакты
         existing = search_contacts("Files/contacts.xlsx", values["args"])[1]
 
-        print(f"Контакты = {existing}")
+        #print(f"Контакты = {existing}")
 
         # Преобразуем существующие контакты в формат для таблицы
         contacts_data = []
@@ -1168,7 +1094,7 @@ def menu_contacts():
     # Загружаем существующие контакты
     existing = search_contacts("Files/contacts.xlsx", "")[1]
 
-    print(f"Контакты = {existing}")
+    #print(f"Контакты = {existing}")
 
     # Создаем заголовки для таблицы
     headings = ['Имя', 'Телефон']
@@ -1182,10 +1108,10 @@ def menu_contacts():
 
 
     layout = [
-        [sg.Text('Имя:'), sg.InputText(key='name',size=(38,10)), sg.Button("Получить сообщения", key="get"), sg.Button('Перезагрузить данные', bind_return_key=True), sg.Button("ⓘ", font='Helvetica 12 bold')],
-        [sg.Text('Телефон:'), sg.InputText(key='phone',size=(34,10)), sg.Button('Анализировать данные'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
-        [sg.Button('Добавить контакт'), sg.Button('Очистить'), sg.Button('Удалить выбранные'), sg.Button('Написать выбранным')],
-        [sg.Text('Список контактов:'), sg.Text('Аргументы для поиска: '), sg.InputText(key='args',size=(27,10)), sg.Button("Выбрать все", key="choose_all")],
+        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button('Перезагрузить данные', font='Helvetica 12 bold', bind_return_key=True), sg.Button("ⓘ", font='Helvetica 12 bold')],
+        [sg.Text('Телефон:', font='Helvetica 12 bold'), sg.InputText(key='phone', font='Helvetica 12 bold',size=(34,10)), sg.Button('Анализировать данные', font='Helvetica 12 bold'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
+        [sg.Button('Добавить контакт', font='Helvetica 12 bold'), sg.Button('Очистить', font='Helvetica 12 bold'), sg.Button('Удалить выбранные', font='Helvetica 12 bold'), sg.Button('Написать выбранным', font='Helvetica 12 bold')],
+        [sg.Text('Список контактов:', font='Helvetica 12 bold'), sg.Text('Аргументы для поиска: ', font='Helvetica 12 bold'), sg.InputText(key='args',size=(27,10), font='Helvetica 12 bold'), sg.Button("Выбрать все", font='Helvetica 12 bold', key="choose_all")],
         [sg.Table(values=contacts_data,
                  headings=headings,
                  max_col_width=55,
@@ -1195,9 +1121,10 @@ def menu_contacts():
                  num_rows=10,
                  key='table',
                  enable_events=True,
+                 font = 'Helvetica 12 bold',
                  size=(60, 20),
                  select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(63, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
-                     reroute_stderr=False, write_only=True, disabled=True)],
+                 reroute_stderr=False, font='Helvetica 12 bold', write_only=True, disabled=True,border_width=3)],
         [sg.Button('Сохранить'), sg.Button('Выход')]
     ]
 
@@ -1215,19 +1142,22 @@ def menu_contacts():
 
             selected_rows = values['table']
             selected_numbers = []
+            ii=0
             for row_index in selected_rows:
                 selected_contact = contacts_data[row_index]
-                print(f"Выбран контакт: Имя = {selected_contact[0]}, Телефон = {selected_contact[1]}")
+                ii+=1
                 selected_numbers.append(selected_contact[1])
                 window['name'].update(selected_contact[0])
                 window['phone'].update(selected_contact[1])
-
+            print(f"Выбрано {ii} контактов")
 
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
 
         if event == 'Настройки':
             sets()
+            window.close()
+            menu_contacts()
 
         if event == '⟳':
             if do_continue("Перезагрузить модем (40 секунд)?"):
@@ -1237,6 +1167,7 @@ def menu_contacts():
                 kill_connect_manager()
                 time.sleep(2)
                 setup_modem(modem_port)
+
 
         if event == "ⓘ":
             open_files_folder()
@@ -1261,7 +1192,7 @@ def menu_contacts():
 
                 reload_data()
 
-                print(f"Добавлен новый контакт: {new_contact}")
+                print(f"Добавлен контакт: {new_contact}")
                 # Очищаем поля ввода
                 window['name'].update('')
                 window['phone'].update('')
@@ -1288,7 +1219,11 @@ def menu_contacts():
             window['name'].update('')
             window['phone'].update('')
         if event == "get":
-            get_messages()
+            log = read_sms_and_save(modem_port, contacts_file, output_file)
+            if log != '':
+                print("--- Новые сообщения: ---")
+                print(log)
+
 
     window.close()
 
@@ -1302,7 +1237,7 @@ def timer(seconds: int):
         #[sg.Button('Отмена', font='Helvetica 10')]
     ]
 
-    window = sg.Window('Таймер', layout, finalize=True)
+    window = sg.Window('Таймер', layout, finalize=True, no_titlebar=True)
 
     # Запускаем таймер
     start_time = time.time()
@@ -1399,12 +1334,7 @@ def get_messages():
         if event == 'continuous_receive':
             continuous = values['continuous_receive']
 
-        if event == 'Получить':# or (continuous and event == sg.TIMEOUT_KEY)
-            print("Получаем смс...")
-            log = read_sms_and_save(modem_port, contacts_file, output_file)
-            if log != '':
-                total_messages = f"{total_messages}{log}"
-            window["messages"].update(total_messages)
+
 
 
 
