@@ -376,9 +376,9 @@ def send_smst():
     for i, contact in enumerate(contacts_to_send):
         pass
         pass
-    
+
     while True:
-        confirm = input("Нажмите Enter для подтверждения: ")
+        confirm = input("Нажмите Enter для подтв��рждения: ")
         if confirm.lower() == "":
             for contact in contacts_to_send:
                 send_sms(modem_port, contact[0], sms_message, 'text', debug=False)
@@ -981,31 +981,59 @@ def do_continue(text):
             window.close()
             return True
 
-def sets():
-    all_themes = sg.theme_list()
-    # Затем определяем интерфейс
-    layout = [
-        [sg.Text("Настройка темы: "), sg.Combo(all_themes, default_value=sg.theme(), key='theme', enable_events=True)]
+def settings():
+    # Читаем текущие настройки
+    with open("Files/settings.txt", "r") as f:
+        settings = {}
+        for line in f:
+            if '=' in line:
+                key, value = line.strip().split('=')
+                settings[key.strip()] = value.strip()
 
+    # Получаем список доступных тем
+    themes = sg.theme_list()
+    current_theme = settings.get('theme', 'DarkAmber')
+    current_battery = settings.get('charge_warning', '20')  # По умолчанию 20%
+
+    layout = [
+        [sg.Text('Тема оформления:')],
+        [sg.Combo(themes, default_value=current_theme, key='theme', size=(20, 1))],
+        [sg.HSeparator()],
+        [sg.Text('Уровень заряда для предупреждения:')],
+        [sg.Slider(range=(1, 100),
+                  default_value=int(current_battery),
+                  orientation='h',
+                  key='battery',
+                  size=(20, 15))],
+        [sg.HSeparator()],
+        [sg.Button('Сохранить'), sg.Button('Отмена')]
     ]
 
-    # Создание окна
     window = sg.Window('Настройки', layout)
 
-    # Цикл событий
     while True:
         event, values = window.read()
 
-        if event in (sg.WINDOW_CLOSED, 'theme'):  # когда меняется тема
-            new_theme = values['theme']
-            if new_theme:
-                sg.theme(new_theme)
-                with open("Files/color.txt", "w") as f:
-                    f.write(new_theme)
-            # Закрываем текущее окно и создаем новое с новой темой
-            window.close()
-            #menu_main()
-            return
+        if event in (sg.WIN_CLOSED, 'Отмена'):
+            break
+
+        if event == 'Сохранить':
+            # Сохраняем настройки
+            settings['theme'] = values['theme']
+            settings['charge_warning'] = str(int(values['battery']))
+
+            with open("Files/settings.txt", "w") as f:
+                for key, value in settings.items():
+                    f.write(f"{key} = {value}\n")
+
+            # Обновляем тему
+            sg.theme(values['theme'])
+            with open("Files/color.txt", "w") as f:
+                f.write(values['theme'])
+
+            break
+
+    window.close()
 
 def menu_analysing():
     if do_continue("Анализировать данные? 🤨"):
@@ -1157,7 +1185,7 @@ def menu_contacts():
             break
 
         if event == 'Настройки':
-            sets()
+            settings()
             window.close()
             menu_contacts()
 
