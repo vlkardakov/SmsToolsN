@@ -82,10 +82,10 @@ def find_modem():
     global modem_port
     global debug_mode
     # Находим все доступные COM порты
-    available_ports = find_available_ports()
+    available_ports = list_ports.comports()
 
     if not available_ports:
-        print(Fore.LIGHTWHITE_EX+"Не удалось найти модем.")
+        print(Fore.LIGHTWHITE_EX + "Не удалось найти модем.")
         print('Функции отправки и принятия СМС не будут работать.', Fore.LIGHTWHITE_EX)
 
     else:
@@ -101,18 +101,21 @@ def find_modem():
                         break
 
         # Проходим по каждому доступному порту
-        for port in reversed(available_ports):
-            #if debug_mode:
-                #print(f"Отправка AT команды на порт {port}...        debug")
-            response = send_at_command(port, "AT")
-            if response:
-                #if debug_mode:
-                    #print(f"Ответ от порта {port}: {response}")
-                # Сохраняем первый найденный порт и завершаем выполнение
-                modem_port = port
-                break
-            if not available_ports:
-                modem_port = 'COM'
+        for port_info in available_ports:
+            port = port_info.device
+            device_name = port_info.description  # Получаем имя устройства
+            if "HUAWEI Mobile Connect - 3G PC UI Interface" in device_name:
+                if debug_mode:
+                    print(f"Подключение к порту {port} ({device_name})...")
+                response = send_at_command(port, "AT")
+                if response:
+                    if debug_mode:
+                        print(f"Ответ от порта {port} ({device_name}): {response}")
+                    # Сохраняем первый найденный порт и завершаем выполнение
+                    modem_port = port
+                    break
+        else:
+            modem_port = 'COM'
 
 find_modem()
 
@@ -949,8 +952,6 @@ def restart_modem():
         res = send_at_command0(ser, 'AT+CFUN=1,1')
         return True if "OK" in res else False
 
-from com_utils import modem_port
-
 def setup_modem(port):
     with serial.Serial(port, 9600, timeout=1) as ser:
         send_at_command0(ser, 'AT+CMGF=1')
@@ -1109,10 +1110,10 @@ def menu_contacts():
 
 
     layout = [
-        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button("Обновить", font='Helvetica 12 bold',key="update", bind_return_key=True), sg.Button("⟳", font='Helvetica 12 bold'), sg.Button("ⓘ", font='Helvetica 12 bold')],
+        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button("Обновить", font='Helvetica 12 bold',key="update"), sg.Button("⟳", font='Helvetica 12 bold'), sg.Button("ⓘ", font='Helvetica 12 bold')],
         [sg.Text('Телефон:', font='Helvetica 12 bold'), sg.InputText(key='phone', font='Helvetica 12 bold',size=(34,10)), sg.Button('Анализировать данные', font='Helvetica 12 bold'), sg.Button('Настройки', font='Helvetica 12 bold')],
         [sg.Button('Добавить контакт', font='Helvetica 12 bold'), sg.Button('Очистить', font='Helvetica 12 bold'), sg.Button('Удалить', font='Helvetica 12 bold')],
-        [sg.Text('Список контактов:', font='Helvetica 12 bold'), sg.Text('Аргументы для поиска: ', font='Helvetica 12 bold'), sg.InputText(key='args',size=(27,10), font='Helvetica 12 bold'), sg.Button("Выбрать все", font='Helvetica 12 bold', key="choose_all")],
+        [sg.Text('Список контактов:', font='Helvetica 12 bold'), sg.Text('Аргументы для поиска: ', font='Helvetica 12 bold'), sg.InputText(key='args',size=(27,10), font='Helvetica 12 bold'), sg.Button("Найти контакты", font='Helvetica 12 bold', key="find", bind_return_key=True)],
         [sg.Table(values=contacts_data,
                  headings=headings,
                  max_col_width=55,
@@ -1124,13 +1125,13 @@ def menu_contacts():
                  enable_events=True,
                  font = 'Helvetica 12 bold',
                  size=(60, 20),
-                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(62, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
+                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(60, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
                  reroute_stderr=False, font='Helvetica 12 bold', write_only=True, disabled=True,border_width=3)],
-        [sg.Button('Выход', font='Helvetica 12 bold'), sg.Text('Сообщение: ', font='Helvetica 12 bold'), sg.InputText(key='msg', font='Helvetica 12 bold', size=(38,10)), sg.Button('Отправить!', font='Helvetica 12 bold')]
+        [sg.Button('Выход', font='Helvetica 12 bold'), sg.Text('Сообщение: ', font='Helvetica 12 bold'), sg.InputText(key='msg', font='Helvetica 12 bold', size=(52,10)), sg.Button('Отправить!', font='Helvetica 12 bold')]
     ]
 
     # Создание окна
-    window = sg.Window('Менеджер контактов', layout)
+    window = sg.Window('Центр управления сообщениями', layout, icon=r"C:\Users\vlkardakov\Documents\1\Bots\SmsToolsN\social.ico")
 
     # Цикл событий
     while True:
@@ -1203,6 +1204,9 @@ def menu_contacts():
             setup_modem(modem_port)
             reload_data()
             kill_connect_manager()
+
+        if event == 'find':
+            reload_data()
 
         if event == "Удалить":
             if selected_numbers and do_continue(f"Удалить {len(selected_numbers)} контакта?" if len(selected_numbers)%10 < 5 and len(selected_numbers)%10 > 1 else f"Удалить {len(selected_numbers)} контактов?"):
@@ -1360,7 +1364,7 @@ def get_messages():
 def menu_choose_contacts():
     # Затем определяем интерфейс
     layout = [
-        [sg.Text('Аргументы: '), sg.InputText(key='search', enable_events=True)],
+        [sg.Text('Аргументы: '), sg.InputText(key='search',size=(20,10), enable_events=True)],
         [sg.Button('Поиск', bind_return_key=True), sg.Button('Отмена'), sg.Button('Очистить')],
         [sg.Text('Список контактов:')],
         [sg.Multiline(size=(56, 10), key='contacts', disabled=True)],
