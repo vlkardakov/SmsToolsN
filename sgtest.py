@@ -131,7 +131,7 @@ def best_send(message, recipient_numbers, pdu):
     modem.close()
     modem = GsmModem(modem_port, 9600)
     modem.connect("")
-    modem.smsTextMode = False
+    modem.smsTextMode = True
     modem.close()
 
 from datetime import timedelta
@@ -1015,13 +1015,13 @@ def kill_connect_manager():
         # Ищем процесс Connect Manager
         for proc in psutil.process_iter(['name']):
             if proc.info['name'] and 'Connect Manager.exe' in proc.info['name']:
-                print(f"Найден процесс Connect Manager (PID: {proc.pid})")
+                #print(f"Найден процесс Connect Manager (PID: {proc.pid})")
                 # Принудительно завершаем процесс
                 proc.kill()
-                print("Процесс успешно завершен")
+                #print("Процесс успешно завершен")
                 return True
 
-        print("Процесс Connect Manager.exe не найден")
+        #print("Процесс Connect Manager.exe не найден")
         return False
 
     except Exception as e:
@@ -1033,8 +1033,8 @@ def sending(nums):
     global modem_port
     # Затем определяем интерфейс
     layout = [
-        [sg.Text('Сообщение: '), sg.InputText(key='msg',size=(38,10)), sg.Checkbox('PDU режим', default=False, key='pdu')],
-        [sg.Button('Отправить!')],
+        [sg.Checkbox('PDU режим', default=False, key='pdu')],
+        [],
         [sg.Text('Журнал: ')],
         [sg.Multiline(size=(50, 20), key='messages', autoscroll=True, reroute_stdout=True, reroute_stderr=False, write_only=True, disabled=True)],
         [sg.Button('Выход')],
@@ -1057,17 +1057,6 @@ def sending(nums):
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
 
-        if event == 'Отправить!' and values["msg"] and do_continue("Отправить сообщение?"):
-            print("Отправка..")
-            if values["pdu"] == True and do_continue("В PDU режиме после завершения рассылки модем будет перезагружен. Продолжить?"):
-                best_send(values["msg"], nums, values["pdu"])
-                log = f"Сообщения отправлены! :D"
-                total_messages = f"{total_messages}{log}\n"
-                window["messages"].update(total_messages)
-                time.sleep(0.1)
-            restart_modem()
-            find_modem()
-            setup_modem(modem_port)
 
 
 
@@ -1119,9 +1108,9 @@ def menu_contacts():
 
 
     layout = [
-        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button('Перезагрузить данные', font='Helvetica 12 bold', bind_return_key=True), sg.Button("ⓘ", font='Helvetica 12 bold')],
-        [sg.Text('Телефон:', font='Helvetica 12 bold'), sg.InputText(key='phone', font='Helvetica 12 bold',size=(34,10)), sg.Button('Анализировать данные', font='Helvetica 12 bold'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold')],
-        [sg.Button('Добавить контакт', font='Helvetica 12 bold'), sg.Button('Очистить', font='Helvetica 12 bold'), sg.Button('Удалить выбранные', font='Helvetica 12 bold'), sg.Button('Написать выбранным', font='Helvetica 12 bold')],
+        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button("ⓘ", font='Helvetica 12 bold')],
+        [sg.Text('Телефон:', font='Helvetica 12 bold'), sg.InputText(key='phone', font='Helvetica 12 bold',size=(34,10)), sg.Button('Анализировать данные', font='Helvetica 12 bold'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold'), sg.Button("↻", font='Helvetica 12 bold',key="update", bind_return_key=True)],
+        [sg.Button('Добавить контакт', font='Helvetica 12 bold'), sg.Button('Очистить', font='Helvetica 12 bold'), sg.Button('Удалить', font='Helvetica 12 bold')],
         [sg.Text('Список контактов:', font='Helvetica 12 bold'), sg.Text('Аргументы для поиска: ', font='Helvetica 12 bold'), sg.InputText(key='args',size=(27,10), font='Helvetica 12 bold'), sg.Button("Выбрать все", font='Helvetica 12 bold', key="choose_all")],
         [sg.Table(values=contacts_data,
                  headings=headings,
@@ -1136,7 +1125,7 @@ def menu_contacts():
                  size=(60, 20),
                  select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(63, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
                  reroute_stderr=False, font='Helvetica 12 bold', write_only=True, disabled=True,border_width=3)],
-        [sg.Button('Выход', font='Helvetica 12 bold')]
+        [sg.Button('Выход', font='Helvetica 12 bold'), sg.Text('Сообщение: '), sg.InputText(key='msg',size=(38,10)), sg.Button('Отправить!')]
     ]
 
     # Создание окна
@@ -1208,10 +1197,13 @@ def menu_contacts():
                 window['name'].update('')
                 window['phone'].update('')
 
-        if event == 'Перезагрузить данные':
+        if event == 'update':
+            kill_connect_manager()
+            setup_modem(modem_port)
             reload_data()
+            kill_connect_manager()
 
-        if event == "Удалить выбранные":
+        if event == "Удалить":
             if selected_numbers and do_continue(f"Удалить {len(selected_numbers)} контакта?" if len(selected_numbers)%10 < 5 and len(selected_numbers)%10 > 1 else f"Удалить {len(selected_numbers)} контактов?"):
                 delete_contact(selected_numbers)
                 reload_data()
@@ -1219,10 +1211,11 @@ def menu_contacts():
             else:
                 err_msg("Сначала выберите контакты!")
 
-        if event == "Написать выбранным":
+        if event == 'Отправить!' and do_continue("Отправить сообщение?"):
             if selected_numbers:
-                sending(selected_numbers)
-                setup_modem(modem_port)
+                best_send(values["msg"], selected_numbers, False)
+                print(f"Сообщения отправлены! :D")
+                time.sleep(0.1)
             else:
                 err_msg("Сначала выберите контакты!")
 
