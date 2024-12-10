@@ -1,3 +1,5 @@
+from weakref import finalize
+
 from openpyxl.styles.builtins import total
 from pyexpat.errors import messages
 import FreeSimpleGUI as sg
@@ -117,7 +119,6 @@ def find_modem():
         else:
             modem_port = 'COM'
 
-find_modem()
 
 from gsmmodem.modem import GsmModem
 
@@ -1035,6 +1036,8 @@ def settings():
 
     window.close()
 
+
+
 def menu_analysing():
     if do_continue("Анализировать данные? 🤨"):
         analysis()
@@ -1104,6 +1107,8 @@ contacts_data = []
 def menu_contacts():
     global can_modem
     global contacts_data
+    global modem_port
+
     def reload_data():
         global contacts_data
         # Загружаем существующие контакты
@@ -1159,12 +1164,26 @@ def menu_contacts():
     ]
 
     # Создание окна
-    window = sg.Window('Центр управления сообщениями', layout, icon=r"C:\Users\vlkardakov\Documents\1\Bots\SmsToolsN\social.ico")
-
+    window = sg.Window('Центр управления сообщениями', layout, icon=r"C:\Users\vlkardakov\Documents\1\Bots\SmsToolsN\social.ico", finalize=True)
+    window.refresh()
+    if True:
+        find_modem()
+        if modem_port != "COM":
+            setup_modem(modem_port)
+            can_modem = True
+        elif modem_port == "COM" and do_continue("Модем не подключен. Подключите модем и Нажмите 'ДА'"):
+            err_msg("Приходите в следующем обновлении! :D")
+            os.system('start "C:\Program Files (x86)\Connect Manager\Connect Manager.exe"')
+            timer(10)
+            kill_connect_manager()
+            time.sleep(2)
+            setup_modem(modem_port)
     # Цикл событий
     while True:
         event, values = window.read()
+
         #print("Окно прочитано ;D")
+
         #print(event)
         #print(values)
 
@@ -1181,6 +1200,7 @@ def menu_contacts():
                 window['phone'].update(selected_contact[1])
             print(f"Выбрано {ii} контактов")
 
+
         if event in (sg.WINDOW_CLOSED, 'Выход'):
             break
 
@@ -1190,10 +1210,10 @@ def menu_contacts():
             menu_contacts()
 
         if event == '⟳':
-            if do_continue("Перезагрузить модем (40 секунд)?"):
+            if do_continue("Перезагрузить модем (50 секунд)?"):
                 res = restart_modem()
                 kill_connect_manager()
-                timer(40)
+                timer(50)
                 kill_connect_manager()
                 time.sleep(2)
                 setup_modem(modem_port)
@@ -1221,6 +1241,7 @@ def menu_contacts():
                 window['table'].update(values=contacts_data)
 
                 reload_data()
+
 
                 print(f"Добавлен контакт: {new_contact}")
                 # Очищаем поля ввода
@@ -1448,9 +1469,4 @@ can_modem = False
 if __name__ == "__main__":
     print(len(sg.theme_list()))
     kill_connect_manager()
-    if modem_port != "COM":
-        setup_modem(modem_port)
-        can_modem = True
-    elif modem_port == "COM" and do_continue("Модем не подключен. Подключите модем и запустите Connect Manager."):
-        err_msg("Приходите в следующем обновлении! :D")
     menu_contacts()
