@@ -104,7 +104,7 @@ def find_modem():
         for port in available_ports:
             #if debug_mode:
                 #print(f"Отправка AT команды на порт {port}...        debug")
-            response = send_at_command(port)
+            response = send_at_command(port, "AT")
             if response:
                 #if debug_mode:
                     #print(f"Ответ от порта {port}: {response}")
@@ -128,6 +128,10 @@ def best_send(message, recipient_numbers, pdu):
     for recipient_number in recipient_numbers:
         modem.sendSms(recipient_number, message)
 
+    modem.close()
+    modem = GsmModem(modem_port, 9600)
+    modem.connect("")
+    modem.smsTextMode = False
     modem.close()
 
 from datetime import timedelta
@@ -960,7 +964,8 @@ def do_continue(text):
     ]
 
     # Создание окна
-    window = sg.Window('Уведомление', layout)
+    window = sg.Window('Продолжить?', layout,  # Запрещает сворачивание
+                       keep_on_top=True)
 
     # Цикл событий
     while True:
@@ -1036,7 +1041,9 @@ def sending(nums):
     ]
 
     # Создание окна
-    window = sg.Window('Рассылка', layout)
+    window = sg.Window('Рассылка', layout,
+                       keep_on_top=True # Запрещает сворачивание
+                       )
 
     total_messages = ""
 
@@ -1052,11 +1059,15 @@ def sending(nums):
 
         if event == 'Отправить!' and values["msg"] and do_continue("Отправить сообщение?"):
             print("Отправка..")
-            best_send(values["msg"], nums, values["pdu"])
-            log = f"Сообщения отправлены! :D"
-            total_messages = f"{total_messages}{log}\n"
-            window["messages"].update(total_messages)
-            time.sleep(0.1)
+            if values["pdu"] == True and do_continue("В PDU режиме после завершения рассылки модем будет перезагружен. Продолжить?"):
+                best_send(values["msg"], nums, values["pdu"])
+                log = f"Сообщения отправлены! :D"
+                total_messages = f"{total_messages}{log}\n"
+                window["messages"].update(total_messages)
+                time.sleep(0.1)
+            restart_modem()
+            find_modem()
+            setup_modem(modem_port)
 
 
 
@@ -1125,7 +1136,7 @@ def menu_contacts():
                  size=(60, 20),
                  select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(63, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
                  reroute_stderr=False, font='Helvetica 12 bold', write_only=True, disabled=True,border_width=3)],
-        [sg.Button('Сохранить'), sg.Button('Выход')]
+        [sg.Button('Выход', font='Helvetica 12 bold')]
     ]
 
     # Создание окна
@@ -1211,7 +1222,7 @@ def menu_contacts():
         if event == "Написать выбранным":
             if selected_numbers:
                 sending(selected_numbers)
-                print(selected_numbers)
+                setup_modem(modem_port)
             else:
                 err_msg("Сначала выберите контакты!")
 
@@ -1237,7 +1248,11 @@ def timer(seconds: int):
         #[sg.Button('Отмена', font='Helvetica 10')]
     ]
 
-    window = sg.Window('Таймер', layout, finalize=True, no_titlebar=True)
+    window = sg.Window('Таймер', layout, finalize=True, no_titlebar=True,
+                       disable_minimize=True,  # Запрещает сворачивание
+                       keep_on_top=True,  # Держит окно поверх других
+                       grab_anywhere=True
+                       )
 
     # Запускаем таймер
     start_time = time.time()
@@ -1285,7 +1300,6 @@ def menu_main():
     layout = [
         #⟳🔄↻↺
         [sg.Button('Запустить меню программы.', font='Helvetica 12 bold'), sg.Button('Выход', font='Helvetica 12 bold')],
-
     ]
 
     # Создание окна
@@ -1403,10 +1417,11 @@ def menu_choose_contacts():
 can_modem = False
 
 if __name__ == "__main__":
+    print(len(sg.theme_list()))
     kill_connect_manager()
     if modem_port != "COM":
         setup_modem(modem_port)
         can_modem = True
     elif modem_port == "COM" and do_continue("Модем не подключен. Подключите модем и запустите Connect Manager."):
         err_msg("Приходите в следующем обновлении! :D")
-    menu_main()
+    menu_contacts()
