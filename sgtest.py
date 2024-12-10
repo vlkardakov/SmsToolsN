@@ -101,7 +101,7 @@ def find_modem():
                         break
 
         # Проходим по каждому доступному порту
-        for port in available_ports:
+        for port in reversed(available_ports):
             #if debug_mode:
                 #print(f"Отправка AT команды на порт {port}...        debug")
             response = send_at_command(port, "AT")
@@ -369,10 +369,11 @@ def send_smst():
         print("Нет контактов, соответствующих критериям поиска.")
         return
 
-    print("Найдены следующие контакты:")
+    ##print("Найдены следующие контакты:")
     for i, contact in enumerate(contacts_to_send):
-        print(f"{i+1}. {contact[0]} -- {contact[1]}")
-
+        pass
+        pass
+    
     while True:
         confirm = input("Нажмите Enter для подтверждения: ")
         if confirm.lower() == "":
@@ -397,9 +398,9 @@ def send_smst():
                 elif (any(term in phone_number or term in contact_name for term in include_terms) and
                       not any(term in phone_number or term in contact_name for term in exclude_terms)):
                     contacts_to_send.append((phone_number, contact_name))
-            print("Найдены следующие контакты:")
+            ##print("Найдены следующие контакты:")
             for i, contact in enumerate(contacts_to_send):
-                print(f"{i+1}. {contact[0]} -- {contact[1]}")
+                pass
         elif confirm.lower() == "n":
             break
         else:
@@ -424,9 +425,9 @@ def delete_contacts(file_path, search_terms):
         print("Нет контактов, соответствующих критериям поиска.")
         return
 
-    print("Найдены следующие контакты:")
+    ##print("Найдены следующие контакты:")
     for i, contact in enumerate(contacts_to_delete):
-        print(f"{i+1}. {contact[0]} -- {contact[1]}")
+        pass
 
     while True:
         confirm = input("Нажмите Enter для подтверждения: ")
@@ -453,9 +454,9 @@ def delete_contacts(file_path, search_terms):
                 elif (any(term in phone_number or term in contact_name for term in include_terms) and
                       not any(term in phone_number or term in contact_name for term in exclude_terms)):
                     contacts_to_delete.append((phone_number, contact_name))
-            print("Найдены следующие контакты:")
+            #print("Найдены следующие контакты:")
             for i, contact in enumerate(contacts_to_delete):
-                print(f"{i+1}. {contact[0]} -- {contact[1]}")
+                pass
         elif confirm.lower() == "n":
             break
         else:
@@ -501,9 +502,9 @@ def search_contacts(file_path, search_terms):
         print("Нет контактов, соответствующих критериям поиска.")
         return ["Нет контактов, соответствующих критериям поиска."], []
 
-    print(f"{contacts_found=}")
+    #print(f"{contacts_found=}")
     final = []
-    print("Найдены следующие контакты:")
+    #print("Найдены следующие контакты:")
 
     just_info = []
 
@@ -1108,8 +1109,8 @@ def menu_contacts():
 
 
     layout = [
-        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button("ⓘ", font='Helvetica 12 bold')],
-        [sg.Text('Телефон:', font='Helvetica 12 bold'), sg.InputText(key='phone', font='Helvetica 12 bold',size=(34,10)), sg.Button('Анализировать данные', font='Helvetica 12 bold'), sg.Button('Настройки', font='Helvetica 12 bold'), sg.Button("⟳", font='Helvetica 12 bold'), sg.Button("↻", font='Helvetica 12 bold',key="update", bind_return_key=True)],
+        [sg.Text('Имя:', font='Helvetica 12 bold'), sg.InputText(key='name',size=(38,10), font='Helvetica 12 bold'), sg.Button("Получить сообщения", font='Helvetica 12 bold', key="get"), sg.Button("Обновить", font='Helvetica 12 bold',key="update", bind_return_key=True), sg.Button("⟳", font='Helvetica 12 bold'), sg.Button("ⓘ", font='Helvetica 12 bold')],
+        [sg.Text('Телефон:', font='Helvetica 12 bold'), sg.InputText(key='phone', font='Helvetica 12 bold',size=(34,10)), sg.Button('Анализировать данные', font='Helvetica 12 bold'), sg.Button('Настройки', font='Helvetica 12 bold')],
         [sg.Button('Добавить контакт', font='Helvetica 12 bold'), sg.Button('Очистить', font='Helvetica 12 bold'), sg.Button('Удалить', font='Helvetica 12 bold')],
         [sg.Text('Список контактов:', font='Helvetica 12 bold'), sg.Text('Аргументы для поиска: ', font='Helvetica 12 bold'), sg.InputText(key='args',size=(27,10), font='Helvetica 12 bold'), sg.Button("Выбрать все", font='Helvetica 12 bold', key="choose_all")],
         [sg.Table(values=contacts_data,
@@ -1123,9 +1124,9 @@ def menu_contacts():
                  enable_events=True,
                  font = 'Helvetica 12 bold',
                  size=(60, 20),
-                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(63, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
+                 select_mode=sg.TABLE_SELECT_MODE_EXTENDED),sg.Multiline(size=(62, 11), key='menu_console', autoscroll=True, reroute_stdout=True,
                  reroute_stderr=False, font='Helvetica 12 bold', write_only=True, disabled=True,border_width=3)],
-        [sg.Button('Выход', font='Helvetica 12 bold'), sg.Text('Сообщение: '), sg.InputText(key='msg',size=(38,10)), sg.Button('Отправить!')]
+        [sg.Button('Выход', font='Helvetica 12 bold'), sg.Text('Сообщение: ', font='Helvetica 12 bold'), sg.InputText(key='msg', font='Helvetica 12 bold', size=(38,10)), sg.Button('Отправить!', font='Helvetica 12 bold')]
     ]
 
     # Создание окна
@@ -1273,11 +1274,14 @@ def err_msg(text):
     global can_modem
     # Затем определяем интерфейс
     layout = [
-        [sg.Text(text), sg.Button('Смириться')]
+        [sg.Text(text), sg.Button('Смириться', font='Helvetica 12 bold')]
     ]
 
     # Создание окна
-    window = sg.Window('Уведомление', layout)
+    window = sg.Window('Уведомление', layout, no_titlebar=True,
+                       disable_minimize=True,  # Запрещает сворачивание
+                       keep_on_top=True,  # Держит окно поверх других
+                       grab_anywhere=True)
 
     # Цикл событий
     while True:

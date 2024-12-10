@@ -273,9 +273,9 @@ def send_smst():
         print("Нет контактов, соответствующих критериям поиска.")
         return
 
-    print("Найдены следующие контакты:")
+    #print("Найдены следующие контакты:")
     for i, contact in enumerate(contacts_to_send):
-        print(f"{i+1}. {contact[0]} -- {contact[1]}")
+        pass
 
     while True:
         confirm = input("Нажмите Enter для подтверждения: ")
@@ -301,9 +301,9 @@ def send_smst():
                 elif (any(term in phone_number or term in contact_name for term in include_terms) and
                       not any(term in phone_number or term in contact_name for term in exclude_terms)):
                     contacts_to_send.append((phone_number, contact_name))
-            print("Найдены следующие контакты:")
+            #print("Найдены следующие контакты:")
             for i, contact in enumerate(contacts_to_send):
-                print(f"{i+1}. {contact[0]} -- {contact[1]}")
+                pass
         elif confirm.lower() == "n":
             break
         else:
@@ -328,9 +328,9 @@ def delete_contacts(file_path, search_terms):
         print("Нет контактов, соответствующих критериям поиска.")
         return
 
-    print("Найдены следующие контакты:")
+    #print("Найдены следующие контакты:")
     for i, contact in enumerate(contacts_to_delete):
-        print(f"{i+1}. {contact[0]} -- {contact[1]}")
+        pass
 
     while True:
         confirm = input("Нажмите Enter для подтверждения: ")
@@ -357,9 +357,9 @@ def delete_contacts(file_path, search_terms):
                 elif (any(term in phone_number or term in contact_name for term in include_terms) and
                       not any(term in phone_number or term in contact_name for term in exclude_terms)):
                     contacts_to_delete.append((phone_number, contact_name))
-            print("Найдены следующие контакты:")
+            #print("Найдены следующие контакты:")
             for i, contact in enumerate(contacts_to_delete):
-                print(f"{i+1}. {contact[0]} -- {contact[1]}")
+                pass
         elif confirm.lower() == "n":
             break
         else:
@@ -407,7 +407,7 @@ def search_contacts(file_path, search_terms):
 
     print(f"{contacts_found=}")
     final = []
-    print("Найдены следующие контакты:")
+    #print("Найдены следующие контакты:")
 
     just_info = []
 
