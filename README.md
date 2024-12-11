@@ -5,7 +5,7 @@
 
 > Разархивировать.
 
-> Запустить sgtest.exe
+> Запустить SmsTools.exe
 
 **Как использовать в Python**
 > git clone https://github.com/vlkardakov/SmsToolsN.git
