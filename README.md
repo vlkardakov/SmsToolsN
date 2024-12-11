@@ -18,6 +18,8 @@
 **И радоваться**
 ![Menu](https://github.com/user-attachments/assets/61ab5261-1053-484b-b495-e625a994e821)
 
+![image](https://github.com/user-attachments/assets/61c3d6e8-6757-4399-8ee9-ff309cf7fc9c)
+
 **Инструкция**
 > Перед запуском программы вставить модем, установить `Connect Manager` и добиться, чтобы на модеме был синий / голубой индикатор.
 
