@@ -3,7 +3,9 @@ import FreeSimpleGUI as sg
 modem_port = None
 can_modem = False
 contacts_data = []
+contacts_window = None
 def menu_contacts():
+    global contacts_window
     global can_modem
     global contacts_data
     global modem_port
@@ -129,13 +131,21 @@ def menu_contacts():
     pdu_mode = False
 
     def best_send(message, recipient_numbers, pdu):
+        global contacts_window
         global modem_port
 
         modem = GsmModem(modem_port, 9600)
+        print("\nОтправка сообщений\n[", end="")
+        contacts_window.refresh()
         modem.smsTextMode = pdu  # use PDU mode
         modem.connect("")
         for recipient_number in recipient_numbers:
             modem.sendSms(recipient_number, message)
+            print("#", end="")
+            contacts_window.refresh()
+        print("]")
+        contacts_window.refresh()
+
 
         modem.close()
         modem = GsmModem(modem_port, 9600)
@@ -728,8 +738,8 @@ def menu_contacts():
                     return contact_name
         return num
 
-    # Изменение функции read_sms_and_save
     def read_sms_and_save(port, contacts_file, output_file):
+        global contacts_window
         with serial.Serial(port, 9600, timeout=1) as ser:
             # print("Проверяем...")
             response = send_at_command0(ser, 'AT+CMGL="ALL"')
@@ -753,6 +763,8 @@ def menu_contacts():
                 for sms in combined_messages:
                     # print('')
                     log += f"{num_to_name(sms['sender_number'])}: {sms['message']}  {sms['time']}\n"
+                    print(f"{num_to_name(sms['sender_number'])}: {sms['message']}  {sms['time']}")
+                    contacts_window.refresh()
                 append_to_excel(combined_messages, contacts, output_file)
                 # print("Добавлено, удаляем")
                 # Удаление SMS по индексу
@@ -1161,6 +1173,7 @@ def menu_contacts():
         return True
 
     def err_msg(text):
+        global contacts_window
         global can_modem
         # Затем определяем интерфейс
         layout = [
@@ -1304,7 +1317,7 @@ def menu_contacts():
         if existing:
             for el in existing:
                 contacts_data.append([el["name"], el["number"]])
-        window["table"].update(values=contacts_data)
+        contacts_window["table"].update(values=contacts_data)
 
 
 
@@ -1348,8 +1361,8 @@ def menu_contacts():
     ]
 
     # Создание окна
-    window = sg.Window('Центр управления сообщениями', layout, icon=r"C:\Users\vlkardakov\Documents\1\Bots\SmsToolsN\social.ico", finalize=True)
-    window.refresh()
+    contacts_window = sg.Window('Центр управления сообщениями', layout, icon=r"C:\Users\vlkardakov\Documents\1\Bots\SmsToolsN\social.ico", finalize=True)
+    contacts_window.refresh()
     if True:
         find_modem()
         if modem_port != "COM":
@@ -1357,7 +1370,7 @@ def menu_contacts():
             can_modem = True
     # Цикл событий
     while True:
-        event, values = window.read()
+        event, values = contacts_window.read()
 
         #print("Окно прочитано ;D")
 
@@ -1373,8 +1386,8 @@ def menu_contacts():
                 selected_contact = contacts_data[row_index]
                 ii+=1
                 selected_numbers.append(selected_contact[1])
-                window['name'].update(selected_contact[0])
-                window['phone'].update(selected_contact[1])
+                contacts_window['name'].update(selected_contact[0])
+                contacts_window['phone'].update(selected_contact[1])
             print(f"Выбрано {ii} контактов")
 
 
@@ -1383,7 +1396,7 @@ def menu_contacts():
 
         if event == 'Настройки':
             settings()
-            window.close()
+            contacts_window.close()
             menu_contacts()
 
         if event == '⟳':
@@ -1407,7 +1420,7 @@ def menu_contacts():
             ids_to_choose = []
             for i in range(len(contacts_data)):
                 ids_to_choose.append(i)
-            window["table"].update(ids_to_choose)
+            contacts_window["table"].update(ids_to_choose)
             pass
 
         if event == 'Добавить контакт':
@@ -1415,15 +1428,15 @@ def menu_contacts():
                 add_contacts("Files/contacts.xlsx", [[values["phone"].replace("+7", ""),values["name"]]])
                 new_contact = [values['name'], values['phone']]
                 contacts_data.append(new_contact)
-                window['table'].update(values=contacts_data)
+                contacts_window['table'].update(values=contacts_data)
 
                 reload_data()
 
 
                 print(f"Добавлен контакт: {new_contact}")
                 # Очищаем поля ввода
-                window['name'].update('')
-                window['phone'].update('')
+                contacts_window['name'].update('')
+                contacts_window['phone'].update('')
 
         if event == 'update':
             kill_connect_manager()
@@ -1453,19 +1466,16 @@ def menu_contacts():
             else: err_msg("Модем не подключен.")
 
         if event == 'Очистить':
-            window['name'].update('')
-            window['phone'].update('')
+            contacts_window['name'].update('')
+            contacts_window['phone'].update('')
         if event == "get":
             if can_modem:
-                log = read_sms_and_save(modem_port, contacts_file, output_file)
-                if log != '':
-                    print("--- Новые сообщения: ---")
-                    print(log)
+                read_sms_and_save(modem_port, contacts_file, output_file)
             else:
                 err_msg("Модем не подключен.")
 
 
-    window.close()
+    contacts_window.close()
 if __name__ == "__main__":
     print(len(sg.theme_list()))
     menu_contacts()

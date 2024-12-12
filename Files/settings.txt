@@ -1,4 +1,4 @@
 debug = 0
 sleep_time = 10
-charge_warning = 41
-theme = DarkGrey13
+charge_warning = 97
+theme = LightGrey6
