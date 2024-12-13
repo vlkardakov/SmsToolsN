@@ -1042,6 +1042,7 @@ def menu_contacts():
                        orientation='h',
                        key='battery',
                        size=(20, 15))],
+            [sg.Button("Архивировать даные", key="archive")],
             [sg.HSeparator()],
             [sg.Button('Сохранить'), sg.Button('Отмена')]
         ]
@@ -1055,6 +1056,9 @@ def menu_contacts():
 
             if event in (sg.WIN_CLOSED, 'Отмена'):
                 break
+
+            if event == "archive":
+                clear_logs()
 
             if event == 'Сохранить':
                 # Сохраняем настройки
@@ -1448,10 +1452,20 @@ def menu_contacts():
             reload_data()
 
         if event == "Удалить":
-            if selected_numbers and do_continue(f"Удалить {len(selected_numbers)} контакта?" if len(selected_numbers)%10 < 5 and len(selected_numbers)%10 > 1 else f"Удалить {len(selected_numbers)} контактов?"):
-                delete_contact(selected_numbers)
-                reload_data()
-                err_msg("Успешно.")
+            if selected_numbers:
+                selected_numbers_count = len(selected_numbers)
+                delete_contacts_message = ""
+                if 5 <= selected_numbers_count%10 or (10 < selected_numbers_count < 21):
+                    delete_contacts_message=f"Удалить {selected_numbers_count} контактов?"
+                elif selected_numbers_count%10==1:
+                    delete_contacts_message=f"Удалить {selected_numbers_count} контакт?"
+                elif 1 < selected_numbers_count%10 < 5:
+                    delete_contacts_message = f"Удалить {selected_numbers_count} контакта?"
+
+                if do_continue(delete_contacts_message):
+                    delete_contact(selected_numbers)
+                    reload_data()
+                    err_msg("Успешно.")
             else:
                 err_msg("Сначала выберите контакты!")
 
