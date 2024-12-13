@@ -1,4 +1,3 @@
-
 import FreeSimpleGUI as sg
 modem_port = None
 can_modem = False
@@ -85,6 +84,22 @@ def menu_contacts():
     modem_port = None
     debug_mode = False
 
+    def check_sms_symbols(message):
+        """
+        Проверяет SMS на наличие недопустимых символов для TestMode
+        Возвращает (bool, str): (можно ли отправить, сообщение об ошибке/None)
+        """
+        # Список разрешенных символов в TestMode
+        allowed_chars = set(
+            'abcdefghijklmnopqrstuvwxyz'
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            '0123456789'
+            ' .,!?()-+=:;@')
+
+        for char in message:
+            if char not in allowed_chars:
+                return False
+        return True
     def find_modem():
         global modem_port
         global debug_mode
@@ -135,9 +150,16 @@ def menu_contacts():
         global modem_port
 
         modem = GsmModem(modem_port, 9600)
+        use_text_mode = check_sms_symbols(message)  # use PDU mode
+        if not use_text_mode:
+            if not do_continue("Сообщение содержит нестандартные символы, отправить в PDU-режиме?"):
+                return
+        print("Отправка в PDU-режиме." if not use_text_mode else "Отправка в текстовом режиме.")
         print("\nОтправка сообщений\n[", end="")
         contacts_window.refresh()
-        modem.smsTextMode = pdu  # use PDU mode
+
+        modem.smsTextMode = use_text_mode
+
         modem.connect("")
         for recipient_number in recipient_numbers:
             modem.sendSms(recipient_number, message)
@@ -197,7 +219,7 @@ def menu_contacts():
             ws = wb.active
             # Находим все строки для удаления (в обратном порядке)
             rows_to_delete = []
-            for row in range(ws.max_row, 1, -1):  # начинаем с конца, пропускаем заголовок
+            for row in range(ws.max_row, 1, -1):  # начинаем с конца, пропускаем за��о��овок
                 if f"+7{ws.cell(row=row, column=1).value}" in nums:
                     ii += 1
                     rows_to_delete.append(row)
@@ -229,7 +251,7 @@ def menu_contacts():
         today_date, current_time = get_current_datetime()
         yesterday_date = (datetime.now() - timedelta(days=1)).strftime('%d/%m/%Y')
 
-        # Используем индексацию по номерам столбцов
+        # Используем индексацию по номерам с��олбцов
         phone_column_index = 0  # Индекс столбца с номерами телефонов
         date_column_index = 3  # Индекс столбца с датой получения SMS
 
@@ -397,10 +419,9 @@ def menu_contacts():
         ##print("Найдены следующие контакты:")
         for i, contact in enumerate(contacts_to_send):
             pass
-            pass
 
         while True:
-            confirm = input("Нажмите Enter для подтв��рждения: ")
+            confirm = input("Нажмите Enter для подтврждения: ")
             if confirm.lower() == "":
                 for contact in contacts_to_send:
                     send_sms(modem_port, contact[0], sms_message, 'text', debug=False)
@@ -1036,6 +1057,7 @@ def menu_contacts():
             [sg.Text('Тема оформления:')],
             [sg.Combo(themes, default_value=current_theme, key='theme', size=(20, 1))],
             [sg.HSeparator()],
+            [sg.Text("Название модели модема: "), sg.InputText(key='model', size=(20, 10), enable_events=True)]
             [sg.Text('Уровень заряда для предупреждения:')],
             [sg.Slider(range=(1, 100),
                        default_value=int(current_battery),
@@ -1270,7 +1292,7 @@ def menu_contacts():
         # Создание окна
         window = sg.Window('Поиск контактов', layout)
 
-        # Список для хранения контактов
+        # Список для хранения конта��тов
         contacts_list = []
 
         # Цикл событий
