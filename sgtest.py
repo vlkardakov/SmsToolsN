@@ -3,7 +3,11 @@ modem_port = None
 can_modem = False
 contacts_data = []
 contacts_window = None
+model = None
+speed = None
 def menu_contacts():
+    global speed
+    global model
     global contacts_window
     global can_modem
     global contacts_data
@@ -52,6 +56,8 @@ def menu_contacts():
                 settings[name.strip()] = value.strip()
         return settings
     settings = read_settings(settings_file)
+    model=settings.get('model')
+    speed=settings.get('speed')
     if settings.get('debug') == '1':
         debug_mode = True
 
@@ -74,15 +80,12 @@ def menu_contacts():
             ser.close()
             return response
         except serial.SerialException:
-            if debug:
-                print(f"Не удалось открыть порт {port}.              - debug")
             return None
 
     import os
     from typing import final
     available_ports = None
     modem_port = None
-    debug_mode = False
 
     def check_sms_symbols(message):
         """
@@ -101,8 +104,8 @@ def menu_contacts():
                 return False
         return True
     def find_modem():
-        global modem_port
-        global debug_mode
+        global modem_port,debug_mode, speed, model
+
         # Находим все доступные COM порты
         available_ports = list_ports.comports()
 
@@ -111,28 +114,13 @@ def menu_contacts():
             print('Функции отправки и принятия СМС не будут работать.')
             modem_port = "COM"
         else:
-            num_ports = len(available_ports)
-            # Проверяем настройки отладки из файла settings.txt
-            settings_file = "Files/settings.txt"
-            debug_mode = False
-            if os.path.exists(settings_file):
-                with open(settings_file, 'r') as file:
-                    for line in file:
-                        if line.strip() == 'debug = 1':
-                            debug_mode = True
-                            break
-
             # Проходим по каждому доступному порту
             for port_info in available_ports:
                 port = port_info.device
                 device_name = port_info.description  # Получаем имя устройства
-                if "HUAWEI Mobile Connect - 3G PC UI Interface" in device_name:
-                    if debug_mode:
-                        print(f"Подключение к порту {port} ({device_name})...")
+                if model in device_name:
                     response = send_at_command(port, "AT")
                     if response:
-                        if debug_mode:
-                            print(f"Ответ от порта {port} ({device_name}): {response}")
                         # Сохраняем первый найденный порт и завершаем выполнение
                         modem_port = port
                         break
@@ -146,10 +134,9 @@ def menu_contacts():
     pdu_mode = False
 
     def best_send(message, recipient_numbers, pdu):
-        global contacts_window
-        global modem_port
+        global contacts_window, modem_port, speed
 
-        modem = GsmModem(modem_port, 9600)
+        modem = GsmModem(modem_port, speed)
         use_text_mode = check_sms_symbols(message)  # use PDU mode
         if not use_text_mode:
             if not do_continue("Сообщение содержит нестандартные символы, отправить в PDU-режиме?"):
@@ -167,10 +154,8 @@ def menu_contacts():
             contacts_window.refresh()
         print("]")
         contacts_window.refresh()
-
-
         modem.close()
-        modem = GsmModem(modem_port, 9600)
+        modem = GsmModem(modem_port, speed)
         modem.connect("")
         modem.smsTextMode = True
         modem.close()
@@ -644,34 +629,6 @@ def menu_contacts():
         response = ser.read_all().decode()
         return response
 
-    def send_at_command(port, command):
-        modem = serial.Serial(port, 9600, timeout=5)
-        modem.write((command + '\r\n').encode())
-        time.sleep(1)
-        response = modem.read_all().decode()
-        modem.close()
-        return response
-
-    def delete_sms_by_index(port, index):
-        try:
-            modem = serial.Serial(port, 9600, timeout=5)
-            time.sleep(1)
-            modem.write(f'AT+CMGD={index}\r\n'.encode())  # Удаляем сообщение по индексу
-            time.sleep(1)
-            modem.close()
-        except serial.SerialException as e:
-            print(f"Ошибка открытия порта {port}: {e}")
-        except Exception as e:
-            print(f"Ошибка при удалении смс по индексу {index}: {e}")
-
-    def format_date(date_str):
-        try:
-            # Предполагается, что дата в формате YY/MM/DD
-            date_obj = datetime.strptime(date_str, '%y/%m/%d')
-            return date_obj.strftime('%d/%m/%Y')
-        except ValueError:
-            return date_str  # В случае ошибки возвращаем оригинальную строку
-
     # Функция для парсинга ответа AT+CMGL и извлечения SMS сообщений
     def parse_sms_response(response):
         messages = []
@@ -760,8 +717,8 @@ def menu_contacts():
         return num
 
     def read_sms_and_save(port, contacts_file, output_file):
-        global contacts_window
-        with serial.Serial(port, 9600, timeout=1) as ser:
+        global contacts_window, speed
+        with serial.Serial(port,speed, timeout=1) as ser:
             # print("Проверяем...")
             response = send_at_command0(ser, 'AT+CMGL="ALL"')
 
@@ -889,43 +846,7 @@ def menu_contacts():
 
         wb.save(output_file)
 
-    # Функция для удаления всех SMS на SIM-карте
-    def delete_all_sms(port):
-        modem = serial.Serial(port, 9600, timeout=5)
-        time.sleep(1)
-        modem.write(b'AT+CMGD=1,4\r\n')  # Удаляем все сообщения
-        time.sleep(1)
-        modem.close()
-
-    # Основной код
-    import signal
     import sys
-
-    # Основной код
-    def read_sms_to_excel():
-        contacts_file = "Files/contacts.xlsx"  # Путь к файлу с контактами
-        output_file = "Files/sms_log.xlsx"
-        print('Интенсивный поиск смс!')
-
-        # Читаем значение sleep_time из файла settings.txt
-        sleep_time = None
-        with open("Files/settings.txt", 'r') as file:
-            for line in file:
-                if line.startswith('sleep_time = '):
-                    sleep_time = int(line.strip().split(' = ')[1])
-                    break
-
-        if sleep_time is None:
-            print("Не удалось найти настройку sleep_time в файле settings.txt.")
-            sleep_time = 0  # Значение по умолчанию
-
-        for i in range(10):
-            read_sms_and_save(modem_port, contacts_file, output_file)
-            time.sleep(1)
-        print("Замедление...")
-        while True:
-            read_sms_and_save(modem_port, contacts_file, output_file)
-            time.sleep(sleep_time)
 
     import serial
     import time
@@ -980,11 +901,6 @@ def menu_contacts():
         except Exception as e:
             print(f"Ошибка при очистке логов: {e}")
 
-    def find_com_port():
-        # Выполняем поиск порта из com_port_checker.py
-        # Здесь нужно вставить ваш код для нахождения порта
-        return modem_port  # Пример порта, замените на фактический порт, найденный вашим скриптом
-
     def read_settings(settings_file):
         if not os.path.exists(settings_file):
             print(f"Файл {settings_file} не существует.")
@@ -1005,13 +921,14 @@ def menu_contacts():
         return settings
 
     def restart_modem():
-        global modem_port
-        with serial.Serial(modem_port, 9600, timeout=1) as ser:
+        global modem_port, speed
+        with serial.Serial(modem_port, speed, timeout=1) as ser:
             res = send_at_command0(ser, 'AT+CFUN=1,1')
             return True if "OK" in res else False
 
     def setup_modem(port):
-        with serial.Serial(port, 9600, timeout=1) as ser:
+        global speed
+        with serial.Serial(port, speed, timeout=1) as ser:
             send_at_command0(ser, 'AT+CMGF=1')
             send_at_command0(ser, 'AT+CPMS="ME","ME","ME"')
             return "OK"
@@ -1052,12 +969,15 @@ def menu_contacts():
         themes = sg.theme_list()
         current_theme = settings.get('theme', 'DarkAmber')
         current_battery = settings.get('charge_warning', '20')  # По умолчанию 20%
-
+        current_speed = settings.get('speed', '9600')
+        current_model = settings.get('model', 'HUAWEI Mobile Connect - 3G PC UI Interface')
         layout = [
             [sg.Text('Тема оформления:')],
             [sg.Combo(themes, default_value=current_theme, key='theme', size=(20, 1))],
             [sg.HSeparator()],
-            [sg.Text("Название модели модема: "), sg.InputText(key='model', size=(20, 10), enable_events=True)]
+            [sg.Text("Название модема: "), sg.InputText(key='model', default_text=current_model, size=(30, 10), enable_events=True)],
+            [sg.Text("Скорость модема: "), sg.InputText(key='speed', default_text=current_speed, size=(30, 10), enable_events=True)],
+            [sg.HSeparator()],
             [sg.Text('Уровень заряда для предупреждения:')],
             [sg.Slider(range=(1, 100),
                        default_value=int(current_battery),
@@ -1086,7 +1006,8 @@ def menu_contacts():
                 # Сохраняем настройки
                 settings['theme'] = values['theme']
                 settings['charge_warning'] = str(int(values['battery']))
-
+                settings['speed'] = values['speed']
+                settings['model'] = values['model']
                 with open("Files/settings.txt", "w") as f:
                     for key, value in settings.items():
                         f.write(f"{key} = {value}\n")
@@ -1122,45 +1043,6 @@ def menu_contacts():
         except Exception as e:
             print(f"Произошла ошибка: {e}")
             return False
-
-    def sending(nums):
-        global modem_port
-        # Затем определяем интерфейс
-        layout = [
-            [sg.Checkbox('PDU режим', default=False, key='pdu')],
-            [],
-            [sg.Text('Журнал: ')],
-            [sg.Multiline(size=(50, 20), key='messages', autoscroll=True, reroute_stdout=True, reroute_stderr=False,
-                          write_only=True, disabled=True)],
-            [sg.Button('Выход')],
-        ]
-
-        # Создание окна
-        window = sg.Window('Рассылка', layout,
-                           keep_on_top=True  # Запрещает сворачивание
-                           )
-
-        total_messages = ""
-
-        # Флаг для контроля постоянного получения
-        continuous = False
-
-        # Цикл событий
-        while True:
-            event, values = window.read(
-                timeout=1000 if continuous else None)  # таймаут 1 секунда при постоянном получении
-
-            if event in (sg.WINDOW_CLOSED, 'Выход'):
-                break
-
-            if event == 'Очистить':
-                window['messages'].update('')
-
-            if event == 'Сохранить':
-                # Здесь будет код сохранения сообщений
-                print("Сообщения сохранены")
-
-        window.close()
 
     def timer(seconds: int):
         # Создаем окно с таймером
@@ -1218,119 +1100,7 @@ def menu_contacts():
                 break
         window.close()
 
-    def menu_main():
-        global can_modem
-        # Затем определяем интерфейс
-        layout = [
-            # ⟳🔄↻↺
-            [sg.Button('Запустить меню программы.', font='Helvetica 12 bold'),
-             sg.Button('Выход', font='Helvetica 12 bold')],
-        ]
-
-        # Создание окна
-        window = sg.Window('Главное меню', layout)
-
-        # Цикл событий
-        while True:
-            event, values = window.read()
-
-            if event in (sg.WINDOW_CLOSED, 'Выход'):
-                break
-            if event == "":
-                get_messages()
-            if event == 'Запустить меню программы.':
-                menu_contacts()
-
-        window.close()
-
-    def get_messages():
-        # Затем определяем интерфейс
-        layout = [
-            [sg.Button('Получить'), sg.Button('Выход')],
-            [sg.Text('Входящие сообщения:')],
-            [sg.Multiline(size=(60, 20), key='messages', autoscroll=True, reroute_stdout=True,
-                          reroute_stderr=False, write_only=True, disabled=True)],
-        ]
-
-        # Создание окна
-        window = sg.Window('Получение сообщений', layout)
-
-        total_messages = ""
-
-        # Флаг для контроля постоянного получения
-        continuous = False
-
-        # Цикл событий
-        while True:
-            event, values = window.read(
-                timeout=1000 if continuous else None)  # таймаут 1 секунда при постоянном получении
-
-            if event in (sg.WINDOW_CLOSED, 'Выход'):
-                break
-
-            if event == 'continuous_receive':
-                continuous = values['continuous_receive']
-
-            if event == 'Очистить':
-                window['messages'].update('')
-
-            if event == 'Сохранить':
-                # Здесь будет код сохранения сообщений
-                print("Сообщения сохранены")
-        window.close()
     kill_connect_manager()
-    def menu_choose_contacts():
-        # Затем определяем интерфейс
-        layout = [
-            [sg.Text('Аргументы: '), sg.InputText(key='search', size=(20, 10), enable_events=True)],
-            [sg.Button('Поиск', bind_return_key=True), sg.Button('Отмена'), sg.Button('Очистить')],
-            [sg.Text('Список контактов:')],
-            [sg.Multiline(size=(56, 10), key='contacts', disabled=True)],
-            [sg.Button('Применить')]
-        ]
-
-        # Создание окна
-        window = sg.Window('Поиск контактов', layout)
-
-        # Список для хранения конта��тов
-        contacts_list = []
-
-        # Цикл событий
-        while True:
-            event, values = window.read()
-
-            if event in (sg.WINDOW_CLOSED, 'Отмена'):
-                break
-
-            if event == "Выбрать все существующие" or event == "Поиск":
-                search = values['search']
-                numbers = []
-                # Обновляем поле со списком контактов
-                searched = search_contacts("Files/contacts.xlsx", search)
-                contacts = searched[0]
-                for el in searched[1]:
-                    numbers.append(str(el["number"]))
-
-                window['contacts'].update('')
-                complete = ""
-                for contact in contacts:
-                    complete += f"{contact}\n"
-                window['contacts'].update(complete)
-
-            if event == 'Очистить':
-                window['contacts'].update('')
-                window['search'].update('')
-            if event == 'Применить':
-                try:
-                    window.close()
-                    if numbers:
-                        return numbers
-
-                except Exception as e:
-                    err_msg(f"Неизвестная ошибка {e}")
-                break
-
-        window.close()
     def reload_data():
         global contacts_data
         # Загружаем существующие контакты
@@ -1344,8 +1114,6 @@ def menu_contacts():
             for el in existing:
                 contacts_data.append([el["name"], el["number"]])
         contacts_window["table"].update(values=contacts_data)
-
-
 
     selected_numbers = []
     # Загружаем существующие контакты
