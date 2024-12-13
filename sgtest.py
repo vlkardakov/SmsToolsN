@@ -1052,11 +1052,12 @@ def menu_contacts():
         themes = sg.theme_list()
         current_theme = settings.get('theme', 'DarkAmber')
         current_battery = settings.get('charge_warning', '20')  # По умолчанию 20%
-        
+
         layout = [
             [sg.Text('Тема оформления:')],
             [sg.Combo(themes, default_value=current_theme, key='theme', size=(20, 1))],
             [sg.HSeparator()],
+            [sg.Text("Название модели модема: "), sg.InputText(key='model', size=(20, 10), enable_events=True)]
             [sg.Text('Уровень заряда для предупреждения:')],
             [sg.Slider(range=(1, 100),
                        default_value=int(current_battery),
