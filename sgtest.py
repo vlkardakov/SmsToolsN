@@ -5,6 +5,7 @@ contacts_data = []
 contacts_window = None
 model = None
 speed = None
+
 def menu_contacts():
     global speed
     global model
@@ -12,36 +13,21 @@ def menu_contacts():
     global can_modem
     global contacts_data
     global modem_port
-    from weakref import finalize
-
-    from openpyxl.styles.builtins import total
-    from pyexpat.errors import messages
     import FreeSimpleGUI as sg
     import psutil
-    import serial
     import serial.tools.list_ports as list_ports
-    import os
-    import colorama
-    from colorama import init, Fore, Back, Style
     import warnings
 
-    main_window = None
-
-    colorama.init()
-    with open("Files/color.txt", "r") as f:
-        COLOR = f.read()
-
-    # Сначала устанавливаем тему
-    # sg.theme('DarkAmber')
-    sg.theme(COLOR)
     contacts_file = "Files/contacts.xlsx"  # Путь к файлу с контактами
     output_file = "Files/sms_log.xlsx"
 
     # Проверяем настройки отладки из файла settings.txt
     settings_file = "Files/settings.txt"
     debug_mode = False
+    import os
     def read_settings(settings_file):
         """Функция для чтения настроек из файла."""
+
         if not os.path.exists(settings_file):
             print(f"Файл {settings_file} не существует.")
             return {}
@@ -56,16 +42,12 @@ def menu_contacts():
                 settings[name.strip()] = value.strip()
         return settings
     settings = read_settings(settings_file)
+    color=settings.get('theme')
     model=settings.get('model')
     speed=settings.get('speed')
+    sg.theme(color)
     if settings.get('debug') == '1':
         debug_mode = True
-
-    def find_available_ports():
-        """Функция для поиска всех доступных COM портов."""
-        ports = list(list_ports.comports())
-        return [port.device for port in ports]
-
 
 
     def send_at_command(port, debug=False):
@@ -82,9 +64,6 @@ def menu_contacts():
         except serial.SerialException:
             return None
 
-    import os
-    from typing import final
-    available_ports = None
     modem_port = None
 
     def check_sms_symbols(message):
@@ -164,7 +143,6 @@ def menu_contacts():
     warnings.simplefilter(action='ignore', category=FutureWarning)
 
     def load_contacts(filename):
-        print("what")
         try:
             df = pd.read_excel(filename)
             df = df.drop_duplicates()
@@ -331,8 +309,6 @@ def menu_contacts():
             f.write("\n\n")
             f.write(analysis_content)
 
-        # print("Анализ:")
-        # print(analysis_content)
         print(f"Анализ номер {new_analysis_number} успешно добавлен в файл {analysis_file}.")
 
     def analysis():
@@ -341,17 +317,6 @@ def menu_contacts():
         analysis_file = "Files/Analysis.txt"
         analyze_sms_log(contacts_file, sms_log_file, analysis_file)
 
-    def clear_console():
-        # Определяем операционную систему
-        current_os = platform.system()
-
-        # Очищаем консоль в зависимости от ОС
-        if current_os == 'Windows':
-            os.system('cls')
-        elif current_os in ['Linux', 'Darwin']:  # Darwin - это macOS
-            os.system('clear')
-        else:
-            print("Операционная система не поддерживается для очистки консоли.")
 
     def add_contacts(file_path, new_contacts):
         # Создаем каталог, если он не существует
@@ -376,125 +341,6 @@ def menu_contacts():
 
         wb.save(file_path)
         print(f"Контакты успешно добавлены в {file_path}")
-
-    def send_smst():
-        contacts_file = "Files/contacts.xlsx"
-        sms_message = input("Введите сообщение (английскими буквами!): ")
-        search_terms = input("Введите аргументы для поиска: ")
-        search_terms = search_terms.split()
-        include_terms = [term for term in search_terms if not term.startswith('-')]
-        exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
-
-        wb = load_workbook(contacts_file)
-        ws = wb.active
-
-        contacts_to_send = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            phone_number, contact_name = row
-            if not search_terms:
-                contacts_to_send.append((phone_number, contact_name))
-            elif (any(term in phone_number or term in contact_name for term in include_terms) and
-                  not any(term in phone_number or term in contact_name for term in exclude_terms)):
-                contacts_to_send.append((phone_number, contact_name))
-
-        if not contacts_to_send:
-            print("Нет контактов, соответствующих критериям поиска.")
-            return
-
-        ##print("Найдены следующие контакты:")
-        for i, contact in enumerate(contacts_to_send):
-            pass
-
-        while True:
-            confirm = input("Нажмите Enter для подтврждения: ")
-            if confirm.lower() == "":
-                for contact in contacts_to_send:
-                    send_sms(modem_port, contact[0], sms_message, 'text', debug=False)
-                break
-            elif confirm.lower() == "e":
-                print("Текущие аргументы:")
-                print(f"Сообщение: {sms_message}")
-                print(f"Поиск: {' '.join(search_terms)}")
-                new_sms_message = input("Введите новое сообщение (английскими буквами!): ")
-                new_search_terms = input(
-                    "Введите новые номера телефонов или имена контактов для отправки сообщения (через пробел, оставьте пустым для всех контактов): ")
-                sms_message = new_sms_message if new_sms_message else sms_message
-                search_terms = new_search_terms.split() if new_search_terms else search_terms
-                include_terms = [term for term in search_terms if not term.startswith('-')]
-                exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
-                contacts_to_send = []
-                for row in ws.iter_rows(min_row=2, values_only=True):
-                    phone_number, contact_name = row
-                    if not search_terms:
-                        contacts_to_send.append((phone_number, contact_name))
-                    elif (any(term in phone_number or term in contact_name for term in include_terms) and
-                          not any(term in phone_number or term in contact_name for term in exclude_terms)):
-                        contacts_to_send.append((phone_number, contact_name))
-                ##print("Найдены следующие контакты:")
-                for i, contact in enumerate(contacts_to_send):
-                    pass
-            elif confirm.lower() == "n":
-                break
-            else:
-                print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
-
-    def delete_contacts(file_path, search_terms):
-        wb = load_workbook(file_path)
-        ws = wb.active
-
-        include_terms = [term for term in search_terms if not term.startswith('-')]
-        exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
-
-        contacts_to_delete = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            phone_number, contact_name = row
-            if not search_terms:
-                contacts_to_delete.append((phone_number, contact_name))
-            elif (any(term in phone_number or term in contact_name for term in include_terms) and
-                  not any(term in phone_number or term in contact_name for term in exclude_terms)):
-                contacts_to_delete.append((phone_number, contact_name))
-
-        if not contacts_to_delete:
-            print("Нет контактов, соответствующих критериям поиска.")
-            return
-
-        ##print("Найдены следующие контакты:")
-        for i, contact in enumerate(contacts_to_delete):
-            pass
-
-        while True:
-            confirm = input("Нажмите Enter для подтверждения: ")
-            if confirm.lower() == "":
-                for contact in contacts_to_delete:
-                    for row in ws.iter_rows(min_row=2, values_only=False):
-                        if row[0].value == contact[0] and row[1].value == contact[1]:
-                            ws.delete_rows(row[0].row)
-                wb.save(file_path)
-                print(f"Контакты успешно удалены из {file_path}")
-                break
-            elif confirm.lower() == "e":
-                print("Текущие аргументы:")
-                print(f"Поиск: {' '.join(search_terms)}")
-                new_search_terms = input(
-                    "Введите новые номера телефонов или имена контактов для удаления (через пробел, оставьте пустым для всех контактов): ")
-                search_terms = new_search_terms.split() if new_search_terms else search_terms
-                include_terms = [term for term in search_terms if not term.startswith('-')]
-                exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
-                contacts_to_delete = []
-                for row in ws.iter_rows(min_row=2, values_only=True):
-                    phone_number, contact_name = row
-                    if not search_terms:
-                        contacts_to_delete.append((phone_number, contact_name))
-                    elif (any(term in phone_number or term in contact_name for term in include_terms) and
-                          not any(term in phone_number or term in contact_name for term in exclude_terms)):
-                        contacts_to_delete.append((phone_number, contact_name))
-                # print("Найдены следующие контакты:")
-                for i, contact in enumerate(contacts_to_delete):
-                    pass
-            elif confirm.lower() == "n":
-                break
-            else:
-                print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
 
     def search_contacts(file_path, search_terms):
         wb = load_workbook(file_path)
@@ -549,45 +395,6 @@ def menu_contacts():
         # print(f"{final=}")
         return final, just_info
 
-    def edit_contacts():
-        file_path = "Files/contacts.xlsx"
-
-        while True:
-            print("\nМеню:")
-            print()
-            print("1. Добавить контакт;")
-            print("2. Удалить контакт;")
-            print("3. Поиск контактов;")
-            print("4. Выход;")
-            print()
-            choice = str(input("Выберите действие: "))
-
-            if choice == str("1"):
-                new_contacts = []
-                while True:
-                    phone_number = input("Введите номер телефона (Оставить пустым для завершения): ")
-                    if not phone_number:
-                        break
-                    contact_name = input("Введите имя контакта: ")
-                    new_contacts.append([phone_number, contact_name])
-                if new_contacts:
-                    add_contacts(file_path, new_contacts)
-                else:
-                    print("Нет контактов для добавления.")
-            elif choice == str("2"):
-                search_terms = input("Аргументы для поиска: ")
-                search_terms = search_terms.split()
-                delete_contacts(file_path, search_terms)
-            elif choice == str("3"):
-                search_terms = input("Аргументы для поиска: ")
-                search_terms = search_terms.split()
-                search_contacts(file_path, search_terms)
-            elif choice == "4":
-                break
-            else:
-                print("Недопустимый выбор. Пожалуйста, выберите действие из меню.")
-                break
-
     import subprocess
     import platform
     def open_files_folder():
@@ -628,6 +435,27 @@ def menu_contacts():
         time.sleep(response_timeout)
         response = ser.read_all().decode()
         return response
+
+    # Функция для объединения длинных сообщений
+    def combine_long_messages(messages):
+        combined_messages = []
+        for message in messages:
+            combined_messages.append(message)
+        return combined_messages
+
+    def num_to_name(num):
+        wb = load_workbook("Files/contacts.xlsx")
+        ws = wb.active
+        # print(f"Искомый номер: {num}")
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            phone_number, contact_name = row
+            if phone_number:
+                phone_number = f"+7{phone_number}".replace(" ", "")
+                # print(f"Номер контакта: {phone_number}")
+
+                if phone_number == num:
+                    return contact_name
+        return num
 
     # Функция для парсинга ответа AT+CMGL и извлечения SMS сообщений
     def parse_sms_response(response):
@@ -694,27 +522,6 @@ def menu_contacts():
                 })
             i += 1
         return messages
-
-    # Функция для объединения длинных сообщений
-    def combine_long_messages(messages):
-        combined_messages = []
-        for message in messages:
-            combined_messages.append(message)
-        return combined_messages
-
-    def num_to_name(num):
-        wb = load_workbook("Files/contacts.xlsx")
-        ws = wb.active
-        # print(f"Искомый номер: {num}")
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            phone_number, contact_name = row
-            if phone_number:
-                phone_number = f"+7{phone_number}".replace(" ", "")
-                # print(f"Номер контакта: {phone_number}")
-
-                if phone_number == num:
-                    return contact_name
-        return num
 
     def read_sms_and_save(port, contacts_file, output_file):
         global contacts_window, speed
