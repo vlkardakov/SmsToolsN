@@ -1,4 +1,5 @@
 import FreeSimpleGUI as sg
+# задаем переменные
 modem_port = None
 can_modem = False
 contacts_data = []
@@ -7,26 +8,25 @@ model = None
 speed = None
 
 def menu_contacts():
+    # Куча импорта и глобальных переменных
     global speed
     global model
     global contacts_window
     global can_modem
     global contacts_data
     global modem_port
-    import FreeSimpleGUI as sg
     import psutil
     import serial.tools.list_ports as list_ports
     import warnings
 
     contacts_file = "Files/contacts.xlsx"  # Путь к файлу с контактами
     output_file = "Files/sms_log.xlsx"
-
-    # Проверяем настройки отладки из файла settings.txt
     settings_file = "Files/settings.txt"
     debug_mode = False
+
     import os
     def read_settings(settings_file):
-        """Функция для чтения настроек из файла."""
+        # Функция для чтения настроек
 
         if not os.path.exists(settings_file):
             print(f"Файл {settings_file} не существует.")
@@ -51,10 +51,8 @@ def menu_contacts():
 
 
     def send_at_command(port, debug=False):
-        """
-        Функция для отправки команды AT на указанный COM порт и получения ответа.
-        Возвращает ответ на команду AT или None, если ответа нет.
-        """
+        # Функция для отправки команды AT на указанный COM порт и получения ответа.
+        # Возвращает ответ на команду или None, если ответа нет.
         try:
             ser = serial.Serial(port, timeout=2)
             ser.write(b'AT\r\n')
@@ -67,11 +65,7 @@ def menu_contacts():
     modem_port = None
 
     def check_sms_symbols(message):
-        """
-        Проверяет SMS на наличие недопустимых символов для TestMode
-        Возвращает (bool, str): (можно ли отправить, сообщение об ошибке/None)
-        """
-        # Список разрешенных символов в TestMode
+        # Проверяет текст на наличие недопустимых символов для текстового режима
         allowed_chars = set(
             'abcdefghijklmnopqrstuvwxyz'
             'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -110,9 +104,7 @@ def menu_contacts():
 
     from gsmmodem.modem import GsmModem
 
-    pdu_mode = False
-
-    def best_send(message, recipient_numbers, pdu):
+    def send(message, recipient_numbers, pdu):
         global contacts_window, modem_port, speed
 
         modem = GsmModem(modem_port, speed)
@@ -312,6 +304,7 @@ def menu_contacts():
         print(f"Анализ номер {new_analysis_number} успешно добавлен в файл {analysis_file}.")
 
     def analysis():
+        # анализирует
         contacts_file = "Files/contacts.xlsx"
         sms_log_file = "Files/sms_log.xlsx"
         analysis_file = "Files/Analysis.txt"
@@ -319,23 +312,23 @@ def menu_contacts():
 
 
     def add_contacts(file_path, new_contacts):
-        # Создаем каталог, если он не существует
+        # создаем каталог, если он не существует
         directory = os.path.dirname(file_path)
         if not os.path.exists(directory):
             os.makedirs(directory)
 
         if os.path.exists(file_path):
-            # Загружаем существующий файл
+            # загружаем существующий файл
             wb = load_workbook(file_path)
             ws = wb.active
         else:
-            # Создаем новый файл и заполняем заголовки
+            # создаем новый файл и заполняем заголовки
             wb = Workbook()
             ws = wb.active
             ws.title = "Contacts"
             ws.append(["Phone Number", "Contact Name"])
 
-        # Добавляем новые контакты
+        # добавляем новые контакты
         for contact in new_contacts:
             ws.append(contact)
 
@@ -345,9 +338,6 @@ def menu_contacts():
     def search_contacts(file_path, search_terms):
         wb = load_workbook(file_path)
         ws = wb.active
-
-        include_terms = [term for term in search_terms if not term.startswith('-')]
-        exclude_terms = [term[1:] for term in search_terms if term.startswith('-')]
 
         if search_terms == "":
             search_terms = ["9", "8", "7", "6", "5", "4", "3", "2", "1", "0"]
@@ -381,26 +371,19 @@ def menu_contacts():
             print("Нет контактов, соответствующих критериям поиска.")
             return ["Нет контактов, соответствующих критериям поиска."], []
 
-        # print(f"{contacts_found=}")
         final = []
-        # print("Найдены следующие контакты:")
-
         just_info = []
 
         for i, contact in enumerate(contacts_found):
             just_info.append({"number": contact["num"], "name": contact["name"]})
-            # string = f"{i+1}. {contact["num"]} -- {contact["name"]}"
-            # final.append(string)
-            # print(string)
-        # print(f"{final=}")
+
         return final, just_info
 
     import subprocess
     import platform
     def open_files_folder():
-        """
-        Открывает папку 'Files' в текущем каталоге в проводнике.
-        """
+        # Открывает папку 'Files' в текущем каталоге в проводнике.
+
         try:
             # Определяем путь к папке 'Files'
             current_directory = os.getcwd()
@@ -444,6 +427,7 @@ def menu_contacts():
         return combined_messages
 
     def num_to_name(num):
+        # преобразует номер в имя
         wb = load_workbook("Files/contacts.xlsx")
         ws = wb.active
         # print(f"Искомый номер: {num}")
@@ -1069,7 +1053,7 @@ def menu_contacts():
         if event == 'Отправить!' and values["msg"] and do_continue("Отправить сообщение?"):
             if can_modem:
                 if selected_numbers:
-                    best_send(values["msg"], selected_numbers, False)
+                    send(values["msg"], selected_numbers, False)
                     print(f"Сообщения отправлены! :D")
                     time.sleep(0.1)
                 else:
