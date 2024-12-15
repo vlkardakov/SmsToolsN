@@ -351,7 +351,7 @@ def menu_contacts():
                 for row in ws.iter_rows(min_row=2, values_only=True):
                     phone_number, contact_name = row
                     if phone_number:
-                        string = f"+7{phone_number}::{contact_name}".replace("    ", "")
+                        string = f"+7{phone_number}::{contact_name}".replace(" ", "")
 
                         if search_term in string and string not in final_strings:
                             final_strings.append(string)
