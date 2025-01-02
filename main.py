@@ -1,4 +1,4 @@
-import FreeSimpleGUI as sg
+﻿import FreeSimpleGUI as sg
 # задаем переменные
 modem_port = None
 can_modem = False
@@ -272,7 +272,8 @@ def menu_contacts():
                 for line in message.splitlines():
                     if "Спутн: 0" in line:
                         gps_warning = True
-                    if "Бат:" in line:
+                    if "%)" in line:
+                        #print(line)
                         battery_level = int(line.split("(")[1].split("%")[0])
                         if battery_level < charge_warning:
                             battery_warning = True
