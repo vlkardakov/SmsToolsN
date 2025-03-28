@@ -628,26 +628,6 @@ def menu_contacts():
                 ws.row_dimensions[ws.max_row].height = 13.7
 
         wb.save(output_file)
-
-    # Функция для обновления имен контактов в sms_log.xlsx
-    def update_contact_names(output_file, contacts):
-        try:
-            wb = wb = load_workbook("Files/sms_log.xlsx", data_only=True)
-            ws = wb.active
-        except FileNotFoundError:
-            print(f"Файл {output_file} не найден.")
-            return
-
-        for row in ws.iter_rows(min_row=2, values_only=False):
-            sender_number = str(row[0].value).replace(' ', '').replace('-', '').replace('+', '')
-            recorded_name = row[1].value
-            correct_name = contacts.get(sender_number, "Неизвестный")
-
-            if recorded_name != correct_name:
-                row[1].value = correct_name
-
-        wb.save(output_file)
-
     import sys
 
     import serial
